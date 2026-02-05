@@ -52,10 +52,11 @@
     flex-shrink: 0;
 }
 
-.booking-modal-header h2 {
+.booking-modal-header {
     margin: 0;
     font-size: 20px;
     font-weight: 600;
+    color: white;
 }
 
 .booking-modal-close {
