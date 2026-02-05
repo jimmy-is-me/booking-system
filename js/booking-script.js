@@ -2,7 +2,6 @@ jQuery(document).ready(function($) {
     var currentDate = '';
     var currentDuration = '';
     
-    // 表單驗證函數
     function validateField(field, errorId, validationFunc, errorMessage) {
         var value = field.val().trim();
         var errorElement = $('#' + errorId);
@@ -18,38 +17,32 @@ jQuery(document).ready(function($) {
         }
     }
     
-    // 驗證Email
     function isValidEmail(email) {
         var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return re.test(email);
     }
     
-    // 驗證電話
     function isValidPhone(phone) {
         return phone.length >= 8;
     }
     
-    // 隱藏時長和時間欄位
     function hideDurationAndTime() {
         $('#duration-group').hide();
         $('#time-group').hide();
         $('#booking_time').prop('disabled', true).html('<option value="">請先選擇日期和時長</option>');
     }
     
-    // 顯示時長和時間欄位
     function showDurationAndTime() {
         $('#duration-group').show();
         $('#time-group').show();
     }
     
-    // 日期選擇變更時檢查
     $('#booking_date').on('change', function() {
         var selectedDate = new Date($(this).val());
         var dayOfWeek = selectedDate.getDay();
         var dayNumber = dayOfWeek === 0 ? 7 : dayOfWeek;
         var dateString = $(this).val();
         
-        // 檢查星期
         if (bookingAjax.availableDays.indexOf(dayNumber.toString()) === -1) {
             $('#error_date').text('此星期不開放預約，請選擇其他日期').show();
             $(this).addClass('error');
@@ -57,7 +50,6 @@ jQuery(document).ready(function($) {
             return;
         }
         
-        // 檢查封鎖日期
         if (bookingAjax.blockedDates.indexOf(dateString) !== -1) {
             $('#error_date').text('此日期不開放預約，請選擇其他日期').show();
             $(this).addClass('error');
@@ -68,14 +60,10 @@ jQuery(document).ready(function($) {
         $('#error_date').text('').hide();
         $(this).removeClass('error');
         
-        // 顯示時長和時間欄位
         showDurationAndTime();
-        
-        // 載入時段
         loadAvailableTimes();
     });
     
-    // 載入可用時段
     function loadAvailableTimes() {
         var date = $('#booking_date').val();
         var duration = $('#booking_duration').val();
@@ -117,22 +105,18 @@ jQuery(document).ready(function($) {
         });
     }
     
-    // 監聽時長變更
     $('#booking_duration').on('change', function() {
         if ($('#booking_date').val()) {
             loadAvailableTimes();
         }
     });
     
-    // 提交預約表單
     $('#booking-form').on('submit', function(e) {
         e.preventDefault();
         
-        // 清除之前的錯誤訊息
         $('.error-message').text('').hide();
         $('.form-group input, .form-group select').removeClass('error');
         
-        // 驗證所有必填欄位
         var isValid = true;
         
         isValid = validateField($('#booking_name'), 'error_name', function(val) {
@@ -183,13 +167,11 @@ jQuery(document).ready(function($) {
                     $('#booking-form')[0].reset();
                     hideDurationAndTime();
                     
-                    // 滾動到成功訊息
                     $('html, body').animate({
                         scrollTop: responseDiv.offset().top - 100
                     }, 500);
                 } else {
                     if (response.data.errors) {
-                        // 顯示各欄位錯誤
                         $.each(response.data.errors, function(field, message) {
                             $('#error_' + field).text(message).show();
                             $('#booking_' + field).addClass('error');
@@ -208,6 +190,5 @@ jQuery(document).ready(function($) {
         });
     });
     
-    // 初始隱藏時長和時間欄位
     hideDurationAndTime();
 });
