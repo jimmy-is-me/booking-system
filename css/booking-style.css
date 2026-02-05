@@ -41,7 +41,7 @@
     border-radius: 4px;
     font-size: 14px;
     box-sizing: border-box;
-    transition: border-color 0.3s;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
 
 .booking-form input:focus,
@@ -55,6 +55,7 @@
 .booking-form input.error,
 .booking-form select.error {
     border-color: #d63638;
+    box-shadow: 0 0 0 1px #d63638;
 }
 
 .booking-form textarea {
@@ -66,6 +67,7 @@
     color: #d63638;
     font-size: 13px;
     margin-top: 5px;
+    font-weight: 500;
 }
 
 .availability-message {
@@ -118,11 +120,11 @@
     margin-bottom: 15px;
 }
 
-.error-message {
+.booking-response .error-message {
+    display: block;
     padding: 15px;
     background: #f8d7da;
     border: 1px solid #f5c6cb;
     color: #721c24;
     border-radius: 4px;
-    display: block;
 }
