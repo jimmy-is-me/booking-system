@@ -1,11 +1,17 @@
 jQuery(document).ready(function($) {
     // 新增封鎖日期
     $('#add_blocked_date_btn').on('click', function() {
-        var date = $('#new_blocked_date').val();
+        var startDate = $('#new_blocked_start_date').val();
+        var endDate = $('#new_blocked_end_date').val();
         var note = $('#new_blocked_note').val();
         
-        if (!date) {
-            alert('請選擇日期');
+        if (!startDate || !endDate) {
+            alert('請選擇開始和結束日期');
+            return;
+        }
+        
+        if (new Date(endDate) < new Date(startDate)) {
+            alert('結束日期不能早於開始日期');
             return;
         }
         
@@ -15,7 +21,8 @@ jQuery(document).ready(function($) {
             data: {
                 action: 'add_blocked_date',
                 nonce: bookingAdminData.nonce,
-                date: date,
+                start_date: startDate,
+                end_date: endDate,
                 note: note
             },
             beforeSend: function() {
@@ -24,20 +31,22 @@ jQuery(document).ready(function($) {
             success: function(response) {
                 if (response.success) {
                     // 清空輸入
-                    $('#new_blocked_date').val('');
+                    $('#new_blocked_start_date').val('');
+                    $('#new_blocked_end_date').val('');
                     $('#new_blocked_note').val('');
                     
                     // 新增到列表
                     var row = response.data.data;
                     var newRow = '<tr data-id="' + row.id + '">' +
-                        '<td><strong>' + row.blocked_date + '</strong></td>' +
+                        '<td><strong>' + row.start_date + '</strong></td>' +
+                        '<td><strong>' + row.end_date + '</strong></td>' +
                         '<td>' + (row.note ? row.note : '-') + '</td>' +
                         '<td>' + new Date(row.created_at).toLocaleString('zh-TW') + '</td>' +
-                        '<td><button type="button" class="button button-small remove-blocked-date" data-id="' + row.id + '" data-date="' + row.blocked_date + '">刪除</button></td>' +
+                        '<td><button type="button" class="button button-small remove-blocked-date" data-id="' + row.id + '">刪除</button></td>' +
                         '</tr>';
                     
                     var tbody = $('#blocked-dates-list');
-                    if (tbody.find('td[colspan="4"]').length > 0) {
+                    if (tbody.find('td[colspan="5"]').length > 0) {
                         tbody.html(newRow);
                     } else {
                         tbody.append(newRow);
@@ -61,9 +70,8 @@ jQuery(document).ready(function($) {
     $(document).on('click', '.remove-blocked-date', function() {
         var btn = $(this);
         var id = btn.data('id');
-        var date = btn.data('date');
         
-        if (!confirm('確定要刪除 ' + date + ' 的封鎖設定嗎？')) {
+        if (!confirm('確定要刪除此封鎖日期嗎？')) {
             return;
         }
         
@@ -85,7 +93,7 @@ jQuery(document).ready(function($) {
                         
                         // 如果沒有資料了，顯示空狀態
                         if ($('#blocked-dates-list tr').length === 0) {
-                            $('#blocked-dates-list').html('<tr><td colspan="4" style="text-align: center; padding: 30px;">目前沒有封鎖日期</td></tr>');
+                            $('#blocked-dates-list').html('<tr><td colspan="5" style="text-align: center; padding: 30px;">目前沒有封鎖日期</td></tr>');
                         }
                     });
                     alert('已刪除');
