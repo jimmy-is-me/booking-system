@@ -29,8 +29,18 @@ jQuery(document).ready(function($) {
                     
                     select.css({
                         'border-color': colors[newStatus],
-                        'background': colors[newStatus]
+                        'color': colors[newStatus]
                     });
+                    
+                    // 更新圖示
+                    var icons = {
+                        'pending_booking': '🟠',
+                        'confirmed': '🟢',
+                        'cancelled': '🔴',
+                        'completed': '🔵'
+                    };
+                    
+                    select.parent().find('span').text(icons[newStatus]);
                     
                     // 顯示成功提示
                     var notice = $('<div class="notice notice-success is-dismissible" style="position: fixed; top: 32px; right: 20px; z-index: 9999;"><p>狀態已更新</p></div>');
