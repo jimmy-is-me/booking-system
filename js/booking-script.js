@@ -29,6 +29,19 @@ jQuery(document).ready(function($) {
         return phone.length >= 8;
     }
     
+    // 隱藏時長和時間欄位
+    function hideDurationAndTime() {
+        $('#duration-group').hide();
+        $('#time-group').hide();
+        $('#booking_time').prop('disabled', true).html('<option value="">請先選擇日期和時長</option>');
+    }
+    
+    // 顯示時長和時間欄位
+    function showDurationAndTime() {
+        $('#duration-group').show();
+        $('#time-group').show();
+    }
+    
     // 日期選擇變更時檢查
     $('#booking_date').on('change', function() {
         var selectedDate = new Date($(this).val());
@@ -40,8 +53,7 @@ jQuery(document).ready(function($) {
         if (bookingAjax.availableDays.indexOf(dayNumber.toString()) === -1) {
             $('#error_date').text('此星期不開放預約，請選擇其他日期').show();
             $(this).addClass('error');
-            $(this).val('');
-            $('#booking_time').prop('disabled', true).html('<option value="">請先選擇日期和時長</option>');
+            hideDurationAndTime();
             return;
         }
         
@@ -49,13 +61,15 @@ jQuery(document).ready(function($) {
         if (bookingAjax.blockedDates.indexOf(dateString) !== -1) {
             $('#error_date').text('此日期不開放預約，請選擇其他日期').show();
             $(this).addClass('error');
-            $(this).val('');
-            $('#booking_time').prop('disabled', true).html('<option value="">請先選擇日期和時長</option>');
+            hideDurationAndTime();
             return;
         }
         
         $('#error_date').text('').hide();
         $(this).removeClass('error');
+        
+        // 顯示時長和時間欄位
+        showDurationAndTime();
         
         // 載入時段
         loadAvailableTimes();
@@ -167,7 +181,7 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     responseDiv.html('<div class="success-message">' + response.data.message + '</div>');
                     $('#booking-form')[0].reset();
-                    $('#booking_time').prop('disabled', true).html('<option value="">請先選擇日期和時長</option>');
+                    hideDurationAndTime();
                     
                     // 滾動到成功訊息
                     $('html, body').animate({
@@ -193,4 +207,7 @@ jQuery(document).ready(function($) {
             }
         });
     });
+    
+    // 初始隱藏時長和時間欄位
+    hideDurationAndTime();
 });
