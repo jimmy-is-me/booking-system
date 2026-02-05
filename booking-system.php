@@ -269,9 +269,8 @@ public function render_booking_form() {
             </div>
             
             <div class="form-group">
-                <label>預約日期 <span class="required">*</span></label>
-                <div id="booking-calendar-picker"></div>
-                <input type="hidden" id="booking_date" name="booking_date" required>
+                <label for="booking_date">預約日期 <span class="required">*</span></label>
+                <input type="date" id="booking_date" name="booking_date" required min="<?php echo date('Y-m-d'); ?>">
                 <span class="error-message" id="error_date"></span>
             </div>
             
@@ -287,11 +286,11 @@ public function render_booking_form() {
                 <span class="error-message" id="error_duration"></span>
             </div>
             
-            <div class="form-group" id="time-slots-container" style="display: none;">
-                <label>預約時間 <span class="required">*</span></label>
-                <div id="selected-date-display" class="selected-date-display"></div>
-                <div id="time-slots" class="time-slots-grid"></div>
-                <input type="hidden" id="booking_time" name="booking_time" required>
+            <div class="form-group">
+                <label for="booking_time">預約時間 <span class="required">*</span></label>
+                <select id="booking_time" name="booking_time" required disabled>
+                    <option value="">請先選擇日期和時長</option>
+                </select>
                 <span class="error-message" id="error_time"></span>
             </div>
             
