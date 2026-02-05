@@ -37,14 +37,20 @@ jQuery(document).ready(function($) {
                     
                     // 新增到列表
                     var row = response.data;
-                    var isRange = row.start_date !== row.end_date;
                     var noteDisplay = row.note ? '<span class="dashicons dashicons-info" style="color: #2271b1;"></span> ' + row.note : '<span style="color: #999;">-</span>';
+                    
+                    var createdDate = new Date(row.created_at.replace(' ', 'T'));
+                    var formattedDate = createdDate.getFullYear() + '-' + 
+                                      String(createdDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                                      String(createdDate.getDate()).padStart(2, '0') + ' ' + 
+                                      String(createdDate.getHours()).padStart(2, '0') + ':' + 
+                                      String(createdDate.getMinutes()).padStart(2, '0');
                     
                     var newRow = '<tr data-id="' + row.id + '">' +
                         '<td><strong>' + row.start_date + '</strong></td>' +
                         '<td><strong>' + row.end_date + '</strong></td>' +
                         '<td>' + noteDisplay + '</td>' +
-                        '<td>' + new Date(row.created_at).toLocaleString('zh-TW') + '</td>' +
+                        '<td>' + formattedDate + '</td>' +
                         '<td><button type="button" class="button button-small remove-blocked-date" data-id="' + row.id + '" style="color: #b32d2e;">刪除</button></td>' +
                         '</tr>';
                     
@@ -56,10 +62,12 @@ jQuery(document).ready(function($) {
                     }
                     
                     // 顯示成功提示
-                    var message = isRange ? '已新增日期區間：' + row.start_date + ' 至 ' + row.end_date : '已新增封鎖日期：' + row.start_date;
+                    var message = row.start_date === row.end_date ? 
+                        '已新增封鎖日期：' + row.start_date : 
+                        '已新增日期區間：' + row.start_date + ' 至 ' + row.end_date;
                     alert(message);
                 } else {
-                    alert('新增失敗：' + response.data.message);
+                    alert('新增失敗：' + (response.data && response.data.message ? response.data.message : '未知錯誤'));
                 }
             },
             error: function(xhr, status, error) {
@@ -112,7 +120,7 @@ jQuery(document).ready(function($) {
                     });
                     alert('已成功刪除封鎖日期');
                 } else {
-                    alert('刪除失敗：' + response.data.message);
+                    alert('刪除失敗：' + (response.data && response.data.message ? response.data.message : '未知錯誤'));
                     btn.prop('disabled', false).text('刪除');
                 }
             },
