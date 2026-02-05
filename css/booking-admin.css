@@ -1,0 +1,153 @@
+/* 彈出視窗遮罩 */
+.booking-modal-overlay {
+    display: none;
+    position: fixed;
+    z-index: 100000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.6);
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* 彈出面板 */
+.booking-modal-panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 500px;
+    max-width: 90%;
+    height: 100%;
+    background-color: #ffffff;
+    box-shadow: -2px 0 20px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.3s;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+/* 面板標題 */
+.booking-modal-header {
+    padding: 20px 25px;
+    background: #0073aa;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.booking-modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.booking-modal-close {
+    color: white;
+    font-size: 32px;
+    font-weight: normal;
+    line-height: 1;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s;
+}
+
+.booking-modal-close:hover {
+    opacity: 0.7;
+}
+
+/* 面板內容 */
+.booking-modal-body {
+    padding: 25px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.booking-details-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.booking-details-table th,
+.booking-details-table td {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.booking-details-table th {
+    font-weight: 600;
+    width: 35%;
+    color: #555;
+}
+
+.booking-details-table td {
+    color: #333;
+}
+
+.booking-details-table tr:last-child th,
+.booking-details-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* 面板底部 */
+.booking-modal-footer {
+    padding: 15px 25px;
+    background: #f5f5f5;
+    border-top: 1px solid #ddd;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.booking-modal-footer .button {
+    margin-left: 10px;
+}
+
+/* 日曆樣式 */
+#booking-calendar {
+    margin-top: 20px;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.fc-event {
+    cursor: pointer;
+}
+
+.fc-event:hover {
+    opacity: 0.85;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .booking-modal-panel {
+        width: 100%;
+        max-width: 100%;
+    }
+}
