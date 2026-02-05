@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: 預約系統
- * Description: 完整的預約功能,包含前台預約、後台管理、時段衝突檢查
- * Version: 2.4
- * Author: wumetax
+ * Plugin Name: 預約系統 by WumetaX
+ * Description: 完整的預約功能,包含前台預約、後台管理、時段衝突檢查 | 由 WumetaX 專業開發
+ * Version: 2.5
+ * Author: WumetaX
  * Author URI: https://wumetax.com
  * Text Domain: booking-system
  */
@@ -42,11 +42,19 @@ class BookingSystem {
         
         add_filter('use_block_editor_for_post_type', array($this, 'disable_gutenberg_for_booking'), 10, 2);
         add_filter('display_post_states', array($this, 'display_booking_states'), 10, 2);
+        add_filter('admin_footer_text', array($this, 'admin_footer_text'));
         
         add_action('admin_menu', array($this, 'remove_post_attributes'));
         
-        // 建立資料表
         register_activation_hook(__FILE__, array($this, 'create_blocked_dates_table'));
+    }
+    
+    public function admin_footer_text($text) {
+        $screen = get_current_screen();
+        if ($screen && (strpos($screen->id, 'booking') !== false)) {
+            $text = '<span style="color: #666;">預約系統 by <a href="https://wumetax.com" target="_blank" style="color: #0073aa; text-decoration: none; font-weight: 600;">WumetaX</a> | 版本 2.5</span>';
+        }
+        return $text;
     }
     
     public function create_blocked_dates_table() {
@@ -175,8 +183,8 @@ class BookingSystem {
     }
     
     public function enqueue_frontend_scripts() {
-        wp_enqueue_style('booking-style', plugin_dir_url(__FILE__) . 'css/booking-style.css', array(), '2.4');
-        wp_enqueue_script('booking-script', plugin_dir_url(__FILE__) . 'js/booking-script.js', array('jquery'), '2.4', true);
+        wp_enqueue_style('booking-style', plugin_dir_url(__FILE__) . 'css/booking-style.css', array(), '2.5');
+        wp_enqueue_script('booking-script', plugin_dir_url(__FILE__) . 'js/booking-script.js', array('jquery'), '2.5', true);
         
         $settings = $this->get_booking_settings();
         
@@ -208,7 +216,6 @@ class BookingSystem {
         return wp_parse_args($settings, $defaults);
     }
     
-    // 取得所有封鎖日期(展開區間為單一日期陣列)
     private function get_all_blocked_dates_for_js() {
         global $wpdb;
         $table_name = $wpdb->prefix . 'booking_blocked_dates';
@@ -223,7 +230,7 @@ class BookingSystem {
         foreach ($results as $row) {
             $start = new DateTime($row['start_date']);
             $end = new DateTime($row['end_date']);
-            $end->modify('+1 day'); // 包含結束日期
+            $end->modify('+1 day');
             
             $interval = new DateInterval('P1D');
             $period = new DatePeriod($start, $interval, $end);
@@ -236,7 +243,6 @@ class BookingSystem {
         return array_unique($all_dates);
     }
     
-    // 檢查日期是否被封鎖
     private function is_date_blocked($date) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'booking_blocked_dates';
@@ -359,7 +365,6 @@ class BookingSystem {
         return ob_get_clean();
     }
     
-    // 其他函數保持不變...
     public function check_time_availability() {
         check_ajax_referer('booking_nonce', 'nonce');
         
@@ -518,7 +523,6 @@ class BookingSystem {
         }
     }
     
-    // 繼續後續函數...
     public function set_custom_columns($columns) {
         $new_columns = array();
         $new_columns['cb'] = $columns['cb'];
@@ -794,10 +798,11 @@ class BookingSystem {
         }
         
         $settings = $this->get_booking_settings();
-        $blocked_dates = $wpdb->get_results("SELECT * FROM $table_name ORDER BY start_date");
+        $blocked_dates = $wpdb->get_results("SELECT * FROM $table_name ORDER BY start_date DESC");
         ?>
         <div class="wrap">
-            <h1>預約系統設定</h1>
+            <h1 class="wp-heading-inline">預約系統設定</h1>
+            <p class="description" style="margin-top: 5px; margin-bottom: 20px;">設定您的預約系統營業時間、可預約時段和封鎖日期</p>
             
             <h2 class="nav-tab-wrapper">
                 <a href="#general-settings" class="nav-tab nav-tab-active">一般設定</a>
@@ -806,17 +811,21 @@ class BookingSystem {
             
             <!-- 一般設定 -->
             <div id="general-settings" class="tab-content" style="display: block;">
-                <form method="post" action="" style="max-width: 800px; margin-top: 20px;">
+                <form method="post" action="" style="max-width: 900px; margin-top: 20px;">
                     <?php wp_nonce_field('booking_settings_action', 'booking_settings_nonce'); ?>
                     
                     <table class="form-table">
                         <tr>
                             <th scope="row">
                                 <label>可預約星期</label>
-                                <p class="description">只有勾選的星期會顯示在日曆中</p>
                             </th>
                             <td>
                                 <fieldset>
+                                    <legend class="screen-reader-text"><span>可預約星期</span></legend>
+                                    <p class="description" style="margin-bottom: 15px;">
+                                        <strong>功能說明：</strong>選擇您開放預約的星期。只有勾選的星期會在前台日曆中顯示為可選日期。<br>
+                                        <strong>範例：</strong>如果只勾選週一到週五,週六日將不會出現在預約日曆中。
+                                    </p>
                                     <label style="display: inline-block; margin-right: 15px;">
                                         <input type="checkbox" name="available_days[]" value="1" <?php checked(in_array('1', $settings['available_days'])); ?>> 
                                         <strong>週一</strong>
@@ -853,6 +862,10 @@ class BookingSystem {
                             <th scope="row"><label for="start_time">營業開始時間</label></th>
                             <td>
                                 <input type="time" id="start_time" name="start_time" value="<?php echo esc_attr($settings['start_time']); ?>" style="padding: 8px; font-size: 14px;">
+                                <p class="description">
+                                    <strong>功能說明：</strong>設定您每天開始接受預約的時間。<br>
+                                    <strong>範例：</strong>設定為 09:00,表示早上9點開始可以預約。
+                                </p>
                             </td>
                         </tr>
                         
@@ -860,6 +873,10 @@ class BookingSystem {
                             <th scope="row"><label for="end_time">營業結束時間</label></th>
                             <td>
                                 <input type="time" id="end_time" name="end_time" value="<?php echo esc_attr($settings['end_time']); ?>" style="padding: 8px; font-size: 14px;">
+                                <p class="description">
+                                    <strong>功能說明：</strong>設定您每天最後一個預約時段的開始時間。<br>
+                                    <strong>範例：</strong>設定為 18:00,最後一個預約時段將從下午6點開始。
+                                </p>
                             </td>
                         </tr>
                         
@@ -871,6 +888,10 @@ class BookingSystem {
                                     <option value="30" <?php selected($settings['time_slot_interval'], '30'); ?>>30分鐘</option>
                                     <option value="60" <?php selected($settings['time_slot_interval'], '60'); ?>>60分鐘</option>
                                 </select>
+                                <p class="description">
+                                    <strong>功能說明：</strong>設定每個時段之間的間隔時間。<br>
+                                    <strong>範例：</strong>選擇30分鐘,可預約時間將會是 09:00、09:30、10:00、10:30 等。
+                                </p>
                             </td>
                         </tr>
                         
@@ -878,21 +899,26 @@ class BookingSystem {
                             <th scope="row"><label>可選預約時長</label></th>
                             <td>
                                 <fieldset>
+                                    <legend class="screen-reader-text"><span>可選預約時長</span></legend>
+                                    <p class="description" style="margin-bottom: 15px;">
+                                        <strong>功能說明：</strong>客戶可以選擇的預約時長選項。<br>
+                                        <strong>範例：</strong>勾選 30、60、90 分鐘,客戶就可以在這三個選項中選擇。
+                                    </p>
                                     <label style="display: block; margin-bottom: 8px;">
                                         <input type="checkbox" name="available_durations[]" value="30" <?php checked(in_array('30', $settings['available_durations'])); ?>> 
-                                        <strong>30分鐘</strong>
+                                        <strong>30分鐘</strong> - 短時間服務
                                     </label>
                                     <label style="display: block; margin-bottom: 8px;">
                                         <input type="checkbox" name="available_durations[]" value="60" <?php checked(in_array('60', $settings['available_durations'])); ?>> 
-                                        <strong>60分鐘</strong>
+                                        <strong>60分鐘</strong> - 標準服務時長
                                     </label>
                                     <label style="display: block; margin-bottom: 8px;">
                                         <input type="checkbox" name="available_durations[]" value="90" <?php checked(in_array('90', $settings['available_durations'])); ?>> 
-                                        <strong>90分鐘</strong>
+                                        <strong>90分鐘</strong> - 較長時間服務
                                     </label>
                                     <label style="display: block; margin-bottom: 8px;">
                                         <input type="checkbox" name="available_durations[]" value="120" <?php checked(in_array('120', $settings['available_durations'])); ?>> 
-                                        <strong>120分鐘</strong>
+                                        <strong>120分鐘</strong> - 完整長時間服務
                                     </label>
                                 </fieldset>
                             </td>
@@ -907,6 +933,10 @@ class BookingSystem {
                                     <option value="90" <?php selected($settings['default_duration'], '90'); ?>>90分鐘</option>
                                     <option value="120" <?php selected($settings['default_duration'], '120'); ?>>120分鐘</option>
                                 </select>
+                                <p class="description">
+                                    <strong>功能說明：</strong>客戶開啟預約表單時,預設選中的時長選項。<br>
+                                    <strong>建議：</strong>選擇您最常見的服務時長作為預設值。
+                                </p>
                             </td>
                         </tr>
                     </table>
@@ -917,9 +947,13 @@ class BookingSystem {
             
             <!-- 封鎖日期管理 -->
             <div id="blocked-dates" class="tab-content" style="display: none; margin-top: 20px;">
-                <div style="max-width: 1000px;">
+                <div style="max-width: 1100px;">
                     <h3>新增封鎖日期</h3>
-                    <p class="description">設定不開放預約的日期或日期區間,例如：年假、國定假日等。支援單一日期或日期區間。</p>
+                    <p class="description">
+                        <strong>功能說明：</strong>封鎖特定日期或日期區間,讓客戶無法在這些日期預約。<br>
+                        <strong>使用情境：</strong>適用於國定假日、公司年假、臨時休息等情況。<br>
+                        <strong>操作方式：</strong>單一日期請在開始和結束填寫相同日期;日期區間請填寫不同的開始和結束日期。
+                    </p>
                     
                     <div style="background: white; padding: 20px; border: 1px solid #ccc; border-radius: 4px; margin: 20px 0;">
                         <table class="form-table">
@@ -927,7 +961,7 @@ class BookingSystem {
                                 <th><label for="new_blocked_start_date">開始日期</label></th>
                                 <td>
                                     <input type="date" id="new_blocked_start_date" style="padding: 8px; font-size: 14px; width: 200px;">
-                                    <p class="description">封鎖的起始日期</p>
+                                    <p class="description">封鎖的起始日期(單一日期請填寫相同日期)</p>
                                 </td>
                             </tr>
                             <tr>
@@ -940,8 +974,8 @@ class BookingSystem {
                             <tr>
                                 <th><label for="new_blocked_note">備註說明</label></th>
                                 <td>
-                                    <input type="text" id="new_blocked_note" placeholder="例如：春節假期、公司年假" style="padding: 8px; font-size: 14px; width: 400px;">
-                                    <p class="description">選填，記錄此區間封鎖的原因</p>
+                                    <input type="text" id="new_blocked_note" placeholder="例如：春節假期、公司年假、設備維修" style="padding: 8px; font-size: 14px; width: 400px;">
+                                    <p class="description">選填,記錄此區間封鎖的原因,方便日後管理</p>
                                 </td>
                             </tr>
                         </table>
@@ -949,11 +983,14 @@ class BookingSystem {
                     </div>
                     
                     <h3>已封鎖的日期列表</h3>
+                    <p class="description" style="margin-bottom: 15px;">
+                        以下是所有已設定的封鎖日期區間。客戶將無法在這些日期範圍內進行預約。
+                    </p>
                     <table class="wp-list-table widefat fixed striped">
                         <thead>
                             <tr>
-                                <th style="width: 150px;">開始日期</th>
-                                <th style="width: 150px;">結束日期</th>
+                                <th style="width: 130px;">開始日期</th>
+                                <th style="width: 130px;">結束日期</th>
                                 <th>備註說明</th>
                                 <th style="width: 150px;">建立時間</th>
                                 <th style="width: 100px;">操作</th>
@@ -962,17 +999,31 @@ class BookingSystem {
                         <tbody id="blocked-dates-list">
                             <?php if (empty($blocked_dates)): ?>
                                 <tr>
-                                    <td colspan="5" style="text-align: center; padding: 30px;">目前沒有封鎖日期</td>
+                                    <td colspan="5" style="text-align: center; padding: 30px; color: #666;">
+                                        目前沒有封鎖日期<br>
+                                        <small style="color: #999;">您可以在上方新增需要封鎖的日期或日期區間</small>
+                                    </td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($blocked_dates as $blocked): ?>
+                                    <?php
+                                    $is_range = $blocked->start_date !== $blocked->end_date;
+                                    $date_display = $is_range ? '區間' : '單日';
+                                    ?>
                                     <tr data-id="<?php echo esc_attr($blocked->id); ?>">
                                         <td><strong><?php echo esc_html($blocked->start_date); ?></strong></td>
                                         <td><strong><?php echo esc_html($blocked->end_date); ?></strong></td>
-                                        <td><?php echo esc_html($blocked->note ? $blocked->note : '-'); ?></td>
+                                        <td>
+                                            <?php if ($blocked->note): ?>
+                                                <span class="dashicons dashicons-info" style="color: #2271b1;"></span>
+                                                <?php echo esc_html($blocked->note); ?>
+                                            <?php else: ?>
+                                                <span style="color: #999;">-</span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><?php echo esc_html(date('Y-m-d H:i', strtotime($blocked->created_at))); ?></td>
                                         <td>
-                                            <button type="button" class="button button-small remove-blocked-date" data-id="<?php echo esc_attr($blocked->id); ?>">
+                                            <button type="button" class="button button-small remove-blocked-date" data-id="<?php echo esc_attr($blocked->id); ?>" style="color: #b32d2e;">
                                                 刪除
                                             </button>
                                         </td>
@@ -1025,21 +1076,22 @@ class BookingSystem {
             array(
                 'start_date' => $start_date,
                 'end_date' => $end_date,
-                'note' => $note
+                'note' => $note,
+                'created_at' => current_time('mysql')
             ),
-            array('%s', '%s', '%s')
+            array('%s', '%s', '%s', '%s')
         );
         
-        if ($result) {
+        if ($result !== false) {
             $inserted_id = $wpdb->insert_id;
-            $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $inserted_id));
+            $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $inserted_id), ARRAY_A);
             
             wp_send_json_success(array(
                 'message' => '封鎖日期已新增',
                 'data' => $row
             ));
         } else {
-            wp_send_json_error(array('message' => '新增失敗'));
+            wp_send_json_error(array('message' => '新增失敗: ' . $wpdb->last_error));
         }
     }
     
@@ -1118,7 +1170,7 @@ class BookingSystem {
     
     public function enqueue_admin_scripts($hook) {
         if ('edit.php' === $hook && isset($_GET['post_type']) && $_GET['post_type'] === 'booking') {
-            wp_enqueue_script('booking-admin-list', plugin_dir_url(__FILE__) . 'js/booking-admin-list.js', array('jquery'), '2.4', true);
+            wp_enqueue_script('booking-admin-list', plugin_dir_url(__FILE__) . 'js/booking-admin-list.js', array('jquery'), '2.5', true);
             wp_localize_script('booking-admin-list', 'bookingAdminData', array(
                 'ajaxurl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('booking_admin_nonce')
@@ -1126,7 +1178,7 @@ class BookingSystem {
         }
         
         if ('booking_page_booking-settings' === $hook) {
-            wp_enqueue_script('booking-settings', plugin_dir_url(__FILE__) . 'js/booking-settings.js', array('jquery'), '2.4', true);
+            wp_enqueue_script('booking-settings', plugin_dir_url(__FILE__) . 'js/booking-settings.js', array('jquery'), '2.5', true);
             wp_localize_script('booking-settings', 'bookingAdminData', array(
                 'ajaxurl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('booking_admin_nonce')
@@ -1138,8 +1190,8 @@ class BookingSystem {
             wp_enqueue_script('fullcalendar', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js', array(), '6.1.10', true);
             wp_enqueue_script('fullcalendar-zh', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/zh-tw.global.min.js', array('fullcalendar'), '6.1.10', true);
             
-            wp_enqueue_style('booking-admin-style', plugin_dir_url(__FILE__) . 'css/booking-admin.css', array(), '2.4');
-            wp_enqueue_script('booking-calendar', plugin_dir_url(__FILE__) . 'js/booking-calendar.js', array('jquery', 'fullcalendar', 'fullcalendar-zh'), '2.4', true);
+            wp_enqueue_style('booking-admin-style', plugin_dir_url(__FILE__) . 'css/booking-admin.css', array(), '2.5');
+            wp_enqueue_script('booking-calendar', plugin_dir_url(__FILE__) . 'js/booking-calendar.js', array('jquery', 'fullcalendar', 'fullcalendar-zh'), '2.5', true);
             
             $bookings = $this->get_all_bookings_for_calendar();
             wp_localize_script('booking-calendar', 'bookingCalendarData', array(
