@@ -1,8 +1,214 @@
 jQuery(document).ready(function($) {
-    var currentDate = '';
-    var currentDuration = '';
+    var selectedDate = null;
+    var selectedTime = null;
+    var currentDuration = $('#booking_duration').val();
     
-    // 表單驗證函數
+    // 初始化日曆
+    function initCalendar() {
+        var today = new Date();
+        var currentMonth = today.getMonth();
+        var currentYear = today.getFullYear();
+        
+        renderCalendar(currentYear, currentMonth);
+    }
+    
+    // 渲染日曆
+    function renderCalendar(year, month) {
+        var firstDay = new Date(year, month, 1);
+        var lastDay = new Date(year, month + 1, 0);
+        var prevLastDay = new Date(year, month, 0);
+        
+        var firstDayOfWeek = firstDay.getDay();
+        var daysInMonth = lastDay.getDate();
+        var prevDaysInMonth = prevLastDay.getDate();
+        
+        var calendar = '<div class="calendar-widget">';
+        
+        // 月份導航
+        calendar += '<div class="calendar-header">';
+        calendar += '<button type="button" class="calendar-nav-btn" data-action="prev">&lt;</button>';
+        calendar += '<span class="calendar-month-year">' + year + '年' + (month + 1) + '月</span>';
+        calendar += '<button type="button" class="calendar-nav-btn" data-action="next">&gt;</button>';
+        calendar += '</div>';
+        
+        // 星期標題
+        calendar += '<div class="calendar-weekdays">';
+        var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        weekdays.forEach(function(day) {
+            calendar += '<div class="calendar-weekday">' + day + '</div>';
+        });
+        calendar += '</div>';
+        
+        // 日期格子
+        calendar += '<div class="calendar-days">';
+        
+        // 上個月的日期
+        for (var i = firstDayOfWeek; i > 0; i--) {
+            calendar += '<div class="calendar-day other-month">' + (prevDaysInMonth - i + 1) + '</div>';
+        }
+        
+        // 本月日期
+        var today = new Date();
+        for (var day = 1; day <= daysInMonth; day++) {
+            var currentDate = new Date(year, month, day);
+            var dateString = formatDate(currentDate);
+            var dayOfWeek = currentDate.getDay() === 0 ? 7 : currentDate.getDay();
+            
+            var isToday = (currentDate.toDateString() === today.toDateString());
+            var isSelected = (dateString === selectedDate);
+            var isPast = currentDate < today && !isToday;
+            var isBlocked = bookingAjax.blockedDates.indexOf(dateString) !== -1;
+            var isAvailable = bookingAjax.availableDays.indexOf(dayOfWeek.toString()) !== -1;
+            
+            var classes = ['calendar-day'];
+            if (isToday) classes.push('today');
+            if (isSelected) classes.push('selected');
+            if (isPast || isBlocked || !isAvailable) classes.push('disabled');
+            
+            var dataAttr = '';
+            if (!isPast && !isBlocked && isAvailable) {
+                dataAttr = ' data-date="' + dateString + '"';
+            }
+            
+            calendar += '<div class="' + classes.join(' ') + '"' + dataAttr + '>' + day + '</div>';
+        }
+        
+        // 下個月的日期
+        var remainingDays = 42 - (firstDayOfWeek + daysInMonth);
+        for (var i = 1; i <= remainingDays; i++) {
+            calendar += '<div class="calendar-day other-month">' + i + '</div>';
+        }
+        
+        calendar += '</div></div>';
+        
+        $('#booking-calendar-picker').html(calendar);
+        $('#booking-calendar-picker').data('current-year', year);
+        $('#booking-calendar-picker').data('current-month', month);
+    }
+    
+    // 格式化日期
+    function formatDate(date) {
+        var year = date.getFullYear();
+        var month = String(date.getMonth() + 1).padStart(2, '0');
+        var day = String(date.getDate()).padStart(2, '0');
+        return year + '-' + month + '-' + day;
+    }
+    
+    // 格式化顯示日期
+    function formatDisplayDate(dateString) {
+        var date = new Date(dateString);
+        var weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+        var year = date.getFullYear();
+        var month = date.getMonth() + 1;
+        var day = date.getDate();
+        var weekday = weekdays[date.getDay()];
+        
+        return year + '年' + month + '月' + day + '日 ' + weekday;
+    }
+    
+    // 日曆導航
+    $(document).on('click', '.calendar-nav-btn', function() {
+        var action = $(this).data('action');
+        var currentYear = $('#booking-calendar-picker').data('current-year');
+        var currentMonth = $('#booking-calendar-picker').data('current-month');
+        
+        if (action === 'prev') {
+            if (currentMonth === 0) {
+                currentMonth = 11;
+                currentYear--;
+            } else {
+                currentMonth--;
+            }
+        } else {
+            if (currentMonth === 11) {
+                currentMonth = 0;
+                currentYear++;
+            } else {
+                currentMonth++;
+            }
+        }
+        
+        renderCalendar(currentYear, currentMonth);
+    });
+    
+    // 點擊日期
+    $(document).on('click', '.calendar-day:not(.disabled):not(.other-month)', function() {
+        var dateString = $(this).data('date');
+        if (!dateString) return;
+        
+        selectedDate = dateString;
+        selectedTime = null;
+        
+        $('.calendar-day').removeClass('selected');
+        $(this).addClass('selected');
+        
+        $('#booking_date').val(dateString);
+        $('#selected-date-display').text(formatDisplayDate(dateString));
+        $('#error_date').text('').hide();
+        
+        loadTimeSlots();
+    });
+    
+    // 載入時段
+    function loadTimeSlots() {
+        if (!selectedDate || !currentDuration) {
+            return;
+        }
+        
+        $('#time-slots-container').show();
+        $('#time-slots').html('<div class="loading">載入時段中...</div>');
+        
+        $.ajax({
+            url: bookingAjax.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'get_available_times',
+                nonce: bookingAjax.nonce,
+                date: selectedDate,
+                duration: currentDuration
+            },
+            success: function(response) {
+                var timeSlotsDiv = $('#time-slots');
+                timeSlotsDiv.empty();
+                
+                if (response.times && response.times.length > 0) {
+                    response.times.forEach(function(time) {
+                        var btn = $('<button type="button" class="time-slot-btn" data-time="' + time + '">' + time + '</button>');
+                        timeSlotsDiv.append(btn);
+                    });
+                } else {
+                    timeSlotsDiv.html('<div class="no-slots">此日期無可用時段</div>');
+                }
+            },
+            error: function() {
+                $('#time-slots').html('<div class="error">載入失敗，請重試</div>');
+            }
+        });
+    }
+    
+    // 點擊時段
+    $(document).on('click', '.time-slot-btn', function() {
+        selectedTime = $(this).data('time');
+        
+        $('.time-slot-btn').removeClass('selected');
+        $(this).addClass('selected');
+        
+        $('#booking_time').val(selectedTime);
+        $('#error_time').text('').hide();
+    });
+    
+    // 時長變更
+    $('#booking_duration').on('change', function() {
+        currentDuration = $(this).val();
+        if (selectedDate) {
+            selectedTime = null;
+            $('#booking_time').val('');
+            $('.time-slot-btn').removeClass('selected');
+            loadTimeSlots();
+        }
+    });
+    
+    // 表單驗證
     function validateField(field, errorId, validationFunc, errorMessage) {
         var value = field.val().trim();
         var errorElement = $('#' + errorId);
@@ -18,150 +224,22 @@ jQuery(document).ready(function($) {
         }
     }
     
-    // 驗證Email
     function isValidEmail(email) {
         var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return re.test(email);
     }
     
-    // 驗證電話
     function isValidPhone(phone) {
         return phone.length >= 8;
     }
     
-    // 停用不可預約的日期
-    function disableUnavailableDates(date) {
-        var dateString = $.datepicker.formatDate('yy-mm-dd', date);
-        var dayOfWeek = date.getDay();
-        
-        // 將 JavaScript 的星期日(0)轉換為 7
-        var dayNumber = dayOfWeek === 0 ? 7 : dayOfWeek;
-        
-        // 檢查是否在可預約星期內
-        if (bookingAjax.availableDays.indexOf(dayNumber.toString()) === -1) {
-            return [false, 'unavailable', '此星期不開放預約'];
-        }
-        
-        // 檢查是否在封鎖日期內
-        if (bookingAjax.blockedDates.indexOf(dateString) !== -1) {
-            return [false, 'blocked', '此日期不開放預約'];
-        }
-        
-        return [true, '', ''];
-    }
-    
-    // 如果瀏覽器支援原生 date picker，用 JavaScript 控制
-    var dateInput = $('#booking_date');
-    
-    dateInput.on('change', function() {
-        var selectedDate = new Date($(this).val());
-        var dayOfWeek = selectedDate.getDay();
-        var dayNumber = dayOfWeek === 0 ? 7 : dayOfWeek;
-        var dateString = $(this).val();
-        
-        // 檢查星期
-        if (bookingAjax.availableDays.indexOf(dayNumber.toString()) === -1) {
-            $('#error_date').text('此星期不開放預約，請選擇其他日期').show();
-            $(this).val('');
-            return;
-        }
-        
-        // 檢查封鎖日期
-        if (bookingAjax.blockedDates.indexOf(dateString) !== -1) {
-            $('#error_date').text('此日期不開放預約，請選擇其他日期').show();
-            $(this).val('');
-            return;
-        }
-        
-        $('#error_date').text('').hide();
-    });
-    
-    // 載入可用時段
-    function loadAvailableTimes() {
-        var date = $('#booking_date').val();
-        var duration = $('#booking_duration').val();
-        
-        if (!date || !duration) {
-            return;
-        }
-        
-        currentDate = date;
-        currentDuration = duration;
-        
-        $('#booking_time').prop('disabled', true).html('<option value="">載入中...</option>');
-        
-        $.ajax({
-            url: bookingAjax.ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'get_available_times',
-                nonce: bookingAjax.nonce,
-                date: date,
-                duration: duration
-            },
-            success: function(response) {
-                var timeSelect = $('#booking_time');
-                timeSelect.html('<option value="">請選擇時間</option>');
-                
-                if (response.times && response.times.length > 0) {
-                    $.each(response.times, function(index, time) {
-                        timeSelect.append('<option value="' + time + '">' + time + '</option>');
-                    });
-                    timeSelect.prop('disabled', false);
-                } else {
-                    timeSelect.html('<option value="">此日期無可用時段</option>');
-                }
-            },
-            error: function() {
-                $('#booking_time').html('<option value="">載入失敗</option>');
-            }
-        });
-    }
-    
-    // 監聽日期和時長變更
-    $('#booking_date, #booking_duration').on('change', function() {
-        loadAvailableTimes();
-        $('#availability-message').html('');
-    });
-    
-    // 監聽時間選擇
-    $('#booking_time').on('change', function() {
-        var time = $(this).val();
-        
-        if (time && currentDate && currentDuration) {
-            $.ajax({
-                url: bookingAjax.ajaxurl,
-                type: 'POST',
-                data: {
-                    action: 'check_availability',
-                    nonce: bookingAjax.nonce,
-                    date: currentDate,
-                    time: time,
-                    duration: currentDuration
-                },
-                success: function(response) {
-                    var messageDiv = $('#availability-message');
-                    if (response.available) {
-                        messageDiv.html('<span class="success">' + response.message + '</span>');
-                        $('.submit-booking-btn').prop('disabled', false);
-                    } else {
-                        messageDiv.html('<span class="error">' + response.message + '</span>');
-                        $('.submit-booking-btn').prop('disabled', true);
-                    }
-                }
-            });
-        }
-    });
-    
-    // 提交預約表單
+    // 提交表單
     $('#booking-form').on('submit', function(e) {
         e.preventDefault();
         
-        // 清除之前的錯誤訊息
         $('.error-message').text('').hide();
         $('.form-group input, .form-group select').removeClass('error');
         
-        // 驗證所有必填欄位
         var isValid = true;
         
         isValid = validateField($('#booking_name'), 'error_name', function(val) {
@@ -172,16 +250,21 @@ jQuery(document).ready(function($) {
         
         isValid = validateField($('#booking_phone'), 'error_phone', isValidPhone, bookingAjax.messages.invalid_phone) && isValid;
         
-        isValid = validateField($('#booking_date'), 'error_date', function(val) {
-            return val.length > 0;
-        }, bookingAjax.messages.required) && isValid;
+        if (!selectedDate) {
+            $('#error_date').text('請選擇預約日期').show();
+            isValid = false;
+        }
         
-        isValid = validateField($('#booking_time'), 'error_time', function(val) {
-            return val.length > 0;
-        }, bookingAjax.messages.select_time) && isValid;
+        if (!selectedTime) {
+            $('#error_time').text('請選擇預約時間').show();
+            isValid = false;
+        }
         
         if (!isValid) {
             $('#booking-response').html('<div class="error-message">請修正標示的錯誤欄位</div>');
+            $('html, body').animate({
+                scrollTop: $('.error-message:visible:first').offset().top - 100
+            }, 500);
             return;
         }
         
@@ -191,8 +274,8 @@ jQuery(document).ready(function($) {
             name: $('#booking_name').val(),
             email: $('#booking_email').val(),
             phone: $('#booking_phone').val(),
-            date: $('#booking_date').val(),
-            time: $('#booking_time').val(),
+            date: selectedDate,
+            time: selectedTime,
             duration: $('#booking_duration').val(),
             note: $('#booking_note').val()
         };
@@ -210,16 +293,17 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     responseDiv.html('<div class="success-message">' + response.data.message + '</div>');
                     $('#booking-form')[0].reset();
-                    $('#availability-message').html('');
-                    $('#booking_time').prop('disabled', true).html('<option value="">請先選擇日期和時長</option>');
+                    selectedDate = null;
+                    selectedTime = null;
+                    $('#time-slots-container').hide();
+                    $('.calendar-day').removeClass('selected');
+                    $('.time-slot-btn').removeClass('selected');
                     
-                    // 滾動到成功訊息
                     $('html, body').animate({
                         scrollTop: responseDiv.offset().top - 100
                     }, 500);
                 } else {
                     if (response.data.errors) {
-                        // 顯示各欄位錯誤
                         $.each(response.data.errors, function(field, message) {
                             $('#error_' + field).text(message).show();
                             $('#booking_' + field).addClass('error');
@@ -237,4 +321,7 @@ jQuery(document).ready(function($) {
             }
         });
     });
+    
+    // 初始化
+    initCalendar();
 });
