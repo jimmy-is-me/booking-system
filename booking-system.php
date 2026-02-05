@@ -611,7 +611,7 @@ class BookingSystem {
                 
                 echo '<div style="display: flex; align-items: center; gap: 8px;">';
                 echo '<span style="font-size: 18px;">' . $status_options[$status]['icon'] . '</span>';
-                echo '<select class="booking-quick-status" data-booking-id="' . esc_attr($post_id) . '" style="padding: 6px 10px; border-radius: 4px; border: 2px solid ' . $status_options[$status]['color'] . '; background: white; color: ' . $status_options[$status]['color'] . '; font-weight: bold; cursor: pointer;">';
+                echo '<select class="booking-quick-status" data-booking-id="' . esc_attr($post_id) . '" style="padding: 2px 10px; border-radius: 4px; border: 2px solid ' . $status_options[$status]['color'] . '; background: white; color: ' . $status_options[$status]['color'] . '; font-weight: bold; cursor: pointer;">';
                 foreach ($status_options as $status_key => $status_info) {
                     echo '<option value="' . esc_attr($status_key) . '" ' . selected($status, $status_key, false) . '>' . esc_html($status_info['label']) . '</option>';
                 }
@@ -705,7 +705,7 @@ class BookingSystem {
             <tr>
                 <th><label for="booking_status">預約狀態</label></th>
                 <td>
-                    <select id="booking_status" name="booking_status" style="padding: 8px 12px; font-size: 14px; font-weight: bold;">
+                    <select id="booking_status" name="booking_status">
                         <option value="pending_booking" <?php selected($status, 'pending_booking'); ?>>🟠 待確認</option>
                         <option value="confirmed" <?php selected($status, 'confirmed'); ?>>🟢 已確認</option>
                         <option value="cancelled" <?php selected($status, 'cancelled'); ?>>🔴 已取消</option>
@@ -927,7 +927,7 @@ class BookingSystem {
                         <tr>
                             <th scope="row"><label for="time_slot_interval">時段間隔</label></th>
                             <td>
-                                <select id="time_slot_interval" name="time_slot_interval" style="padding: 8px; font-size: 14px;">
+                                <select id="time_slot_interval" name="time_slot_interval">
                                     <option value="15" <?php selected($settings['time_slot_interval'], '15'); ?>>15分鐘</option>
                                     <option value="30" <?php selected($settings['time_slot_interval'], '30'); ?>>30分鐘</option>
                                     <option value="60" <?php selected($settings['time_slot_interval'], '60'); ?>>60分鐘</option>
@@ -971,7 +971,7 @@ class BookingSystem {
                         <tr>
                             <th scope="row"><label for="default_duration">預設預約時長</label></th>
                             <td>
-                                <select id="default_duration" name="default_duration" style="padding: 8px; font-size: 14px;">
+                                <select id="default_duration" name="default_duration">
                                     <option value="30" <?php selected($settings['default_duration'], '30'); ?>>30分鐘</option>
                                     <option value="60" <?php selected($settings['default_duration'], '60'); ?>>60分鐘</option>
                                     <option value="90" <?php selected($settings['default_duration'], '90'); ?>>90分鐘</option>
