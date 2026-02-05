@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 預約系統
  * Description: 完整的預約功能,包含前台預約、後台管理、時段衝突檢查
- * Version: 2.0
+ * Version: 2.1
  * Author: Your Name
  * Text Domain: booking-system
  */
@@ -49,16 +49,18 @@ class BookingSystem {
         // 停用古騰堡編輯器
         add_filter('use_block_editor_for_post_type', array($this, 'disable_gutenberg_for_booking'), 10, 2);
         
-        // 使用 TinyMCE 編輯器
-        add_action('edit_form_after_title', array($this, 'move_tinymce_editor'));
-        
         // 翻譯文字狀態標籤
         add_filter('display_post_states', array($this, 'display_booking_states'), 10, 2);
+        
+        // 修改新增預約後的重定向
+        add_filter('redirect_post_location', array($this, 'redirect_after_new_booking'), 10, 2);
     }
     
     // 設定字元編碼
     public function set_charset() {
-        header('Content-Type: text/html; charset=UTF-8');
+        if (!is_admin()) {
+            header('Content-Type: text/html; charset=UTF-8');
+        }
     }
     
     // 停用古騰堡編輯器用於預約
@@ -67,13 +69,6 @@ class BookingSystem {
             return false;
         }
         return $use_block_editor;
-    }
-    
-    // 移動 TinyMCE 編輯器位置
-    public function move_tinymce_editor($post) {
-        if ($post->post_type === 'booking') {
-            // TinyMCE 會自動顯示在這個位置
-        }
     }
     
     // 顯示預約狀態中文標籤
@@ -94,6 +89,18 @@ class BookingSystem {
         return $states;
     }
     
+    // 新增預約後重定向到列表頁
+    public function redirect_after_new_booking($location, $post_id) {
+        $post = get_post($post_id);
+        
+        if ($post && $post->post_type === 'booking' && isset($_POST['save']) && $_POST['save'] === '發佈') {
+            // 如果是新增預約,重定向到所有預約列表
+            return admin_url('edit.php?post_type=booking');
+        }
+        
+        return $location;
+    }
+    
     // 註冊 Custom Post Type
     public function register_booking_post_type() {
         $labels = array(
@@ -103,6 +110,7 @@ class BookingSystem {
             'add_new' => '新增預約',
             'add_new_item' => '新增預約',
             'edit_item' => '編輯預約',
+            'new_item' => '新預約',
             'view_item' => '查看預約',
             'all_items' => '所有預約',
             'search_items' => '搜尋預約',
@@ -121,7 +129,7 @@ class BookingSystem {
             'menu_icon' => 'dashicons-calendar-alt',
             'has_archive' => false,
             'rewrite' => false,
-            'show_in_rest' => false, // 停用 REST API 以確保使用傳統編輯器
+            'show_in_rest' => false,
         );
         
         register_post_type('booking', $args);
@@ -168,8 +176,8 @@ class BookingSystem {
     
     // 前台載入腳本
     public function enqueue_frontend_scripts() {
-        wp_enqueue_style('booking-style', plugin_dir_url(__FILE__) . 'css/booking-style.css', array(), '2.0');
-        wp_enqueue_script('booking-script', plugin_dir_url(__FILE__) . 'js/booking-script.js', array('jquery'), '2.0', true);
+        wp_enqueue_style('booking-style', plugin_dir_url(__FILE__) . 'css/booking-style.css', array(), '2.1');
+        wp_enqueue_script('booking-script', plugin_dir_url(__FILE__) . 'js/booking-script.js', array('jquery'), '2.1', true);
         
         wp_localize_script('booking-script', 'bookingAjax', array(
             'ajaxurl' => admin_url('admin-ajax.php'),
@@ -186,7 +194,7 @@ class BookingSystem {
     // 取得管理員設定
     private function get_booking_settings() {
         $defaults = array(
-            'available_days' => array('1', '2', '3', '4', '5'), // 週一到週五
+            'available_days' => array('1', '2', '3', '4', '5'),
             'start_time' => '09:00',
             'end_time' => '18:00',
             'time_slot_interval' => '30',
@@ -207,8 +215,7 @@ class BookingSystem {
         
         $settings = $this->get_booking_settings();
         
-        // 檢查該日期是否在可預約的星期幾
-        $day_of_week = date('N', strtotime($date)); // 1 (週一) 到 7 (週日)
+        $day_of_week = date('N', strtotime($date));
         
         if (!in_array($day_of_week, $settings['available_days'])) {
             wp_send_json(array('times' => array()));
@@ -226,7 +233,6 @@ class BookingSystem {
         while ($current_time < $end_timestamp) {
             $time_str = date('H:i', $current_time);
             
-            // 檢查此時段是否可用
             if ($this->is_time_slot_available($date, $time_str, $duration)) {
                 $available_times[] = $time_str;
             }
@@ -357,7 +363,6 @@ class BookingSystem {
             $new_start = strtotime($start_datetime);
             $new_end = strtotime($end_datetime);
             
-            // 檢查時段是否重疊
             if (($new_start >= $existing_start && $new_start < $existing_end) ||
                 ($new_end > $existing_start && $new_end <= $existing_end) ||
                 ($new_start <= $existing_start && $new_end >= $existing_end)) {
@@ -372,7 +377,6 @@ class BookingSystem {
     public function handle_booking_submission() {
         check_ajax_referer('booking_nonce', 'nonce');
         
-        // 設定回應為 UTF-8
         header('Content-Type: application/json; charset=utf-8');
         
         $name = sanitize_text_field($_POST['name']);
@@ -383,7 +387,6 @@ class BookingSystem {
         $duration = intval($_POST['duration']);
         $note = sanitize_textarea_field($_POST['note']);
         
-        // 驗證必填欄位
         $errors = array();
         
         if (empty($name)) {
@@ -414,13 +417,11 @@ class BookingSystem {
             return;
         }
         
-        // 再次檢查時段可用性
         if (!$this->is_time_slot_available($date, $time, $duration)) {
             wp_send_json_error(array('message' => '此時段已被預約，請重新選擇'));
             return;
         }
         
-        // 建立預約
         $post_data = array(
             'post_title' => $name . ' - ' . $date . ' ' . $time,
             'post_type' => 'booking',
@@ -431,7 +432,6 @@ class BookingSystem {
         $booking_id = wp_insert_post($post_data);
         
         if ($booking_id) {
-            // 儲存預約資料
             update_post_meta($booking_id, '_booking_name', $name);
             update_post_meta($booking_id, '_booking_email', $email);
             update_post_meta($booking_id, '_booking_phone', $phone);
@@ -439,7 +439,6 @@ class BookingSystem {
             update_post_meta($booking_id, '_booking_time', $time);
             update_post_meta($booking_id, '_booking_duration', $duration);
             
-            // 發送通知郵件給管理員
             $admin_email = get_option('admin_email');
             $subject = '新的預約通知';
             $message = "收到新的預約：\n\n";
@@ -453,7 +452,6 @@ class BookingSystem {
             
             wp_mail($admin_email, $subject, $message, array('Content-Type: text/plain; charset=UTF-8'));
             
-            // 發送確認郵件給訪客
             $customer_subject = '預約確認通知';
             $customer_message = "您好 {$name}，\n\n";
             $customer_message .= "您的預約已收到，詳細資訊如下：\n\n";
@@ -540,6 +538,8 @@ class BookingSystem {
         $time = get_post_meta($post->ID, '_booking_time', true);
         $duration = get_post_meta($post->ID, '_booking_duration', true);
         $status = get_post_status($post->ID);
+        
+        $settings = $this->get_booking_settings();
         ?>
         <table class="form-table">
             <tr>
@@ -566,10 +566,9 @@ class BookingSystem {
                 <th><label for="booking_duration">時長(分鐘)</label></th>
                 <td>
                     <select id="booking_duration" name="booking_duration">
-                        <option value="30" <?php selected($duration, 30); ?>>30分鐘</option>
-                        <option value="60" <?php selected($duration, 60); ?>>60分鐘</option>
-                        <option value="90" <?php selected($duration, 90); ?>>90分鐘</option>
-                        <option value="120" <?php selected($duration, 120); ?>>120分鐘</option>
+                        <?php foreach ($settings['available_durations'] as $dur): ?>
+                            <option value="<?php echo esc_attr($dur); ?>" <?php selected($duration, $dur); ?>><?php echo esc_html($dur); ?>分鐘</option>
+                        <?php endforeach; ?>
                     </select>
                 </td>
             </tr>
@@ -629,7 +628,6 @@ class BookingSystem {
             update_post_meta($post_id, '_booking_duration', intval($_POST['booking_duration']));
         }
         
-        // 更新文章狀態
         if (isset($_POST['booking_status']) && $_POST['booking_status'] != $post->post_status) {
             remove_action('save_post_booking', array($this, 'save_booking_meta'), 10);
             wp_update_post(array(
@@ -669,16 +667,18 @@ class BookingSystem {
             <div id="booking-calendar"></div>
         </div>
         
-        <!-- 彈出視窗 -->
-        <div id="booking-modal" class="booking-modal" style="display:none;">
-            <div class="booking-modal-content">
-                <span class="booking-modal-close">&times;</span>
-                <h2>預約詳情</h2>
-                <div id="booking-modal-body">
+        <!-- 彈出視窗面板 -->
+        <div id="booking-modal-overlay" class="booking-modal-overlay">
+            <div class="booking-modal-panel">
+                <div class="booking-modal-header">
+                    <h2>預約詳情</h2>
+                    <span class="booking-modal-close">&times;</span>
+                </div>
+                <div class="booking-modal-body" id="booking-modal-body">
                     <p>載入中...</p>
                 </div>
                 <div class="booking-modal-footer">
-                    <a href="#" id="booking-edit-link" class="button button-primary">編輯預約</a>
+                    <a href="#" id="booking-edit-link" class="button button-primary" target="_blank">編輯預約</a>
                     <button type="button" class="button" id="booking-modal-close-btn">關閉</button>
                 </div>
             </div>
@@ -841,16 +841,14 @@ class BookingSystem {
     
     // 後台載入腳本
     public function enqueue_admin_scripts($hook) {
-        // 日曆頁面
         if ('booking_page_booking-calendar' === $hook) {
             wp_enqueue_style('fullcalendar', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css', array(), '6.1.10');
             wp_enqueue_script('fullcalendar', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js', array(), '6.1.10', true);
             wp_enqueue_script('fullcalendar-zh', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/zh-tw.global.min.js', array('fullcalendar'), '6.1.10', true);
             
-            wp_enqueue_style('booking-admin-style', plugin_dir_url(__FILE__) . 'css/booking-admin.css', array(), '2.0');
-            wp_enqueue_script('booking-calendar', plugin_dir_url(__FILE__) . 'js/booking-calendar.js', array('jquery', 'fullcalendar', 'fullcalendar-zh'), '2.0', true);
+            wp_enqueue_style('booking-admin-style', plugin_dir_url(__FILE__) . 'css/booking-admin.css', array(), '2.1');
+            wp_enqueue_script('booking-calendar', plugin_dir_url(__FILE__) . 'js/booking-calendar.js', array('jquery', 'fullcalendar', 'fullcalendar-zh'), '2.1', true);
             
-            // 傳遞預約資料給JavaScript
             $bookings = $this->get_all_bookings_for_calendar();
             wp_localize_script('booking-calendar', 'bookingCalendarData', array(
                 'bookings' => $bookings,
