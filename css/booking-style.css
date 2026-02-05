@@ -70,6 +70,11 @@
     font-weight: 500;
 }
 
+/* 日曆容器 */
+#booking-calendar-picker {
+    margin-top: 10px;
+}
+
 /* 日曆樣式 */
 .calendar-widget {
     background: #fff;
@@ -141,6 +146,7 @@
     font-weight: 500;
     transition: all 0.2s;
     border: 2px solid transparent;
+    background: white;
 }
 
 .calendar-day:not(.disabled):not(.other-month):hover {
@@ -154,8 +160,8 @@
 }
 
 .calendar-day.selected {
-    background: #c62828;
-    color: white;
+    background: #c62828 !important;
+    color: white !important;
     font-weight: 700;
 }
 
@@ -168,6 +174,11 @@
 .calendar-day.other-month {
     color: #ddd;
     cursor: default;
+}
+
+/* 時段容器 */
+#time-slots-container {
+    margin-top: 15px;
 }
 
 /* 已選日期顯示 */
@@ -184,6 +195,13 @@
 
 /* 時段按鈕網格 */
 .time-slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+#time-slots {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 10px;
@@ -211,8 +229,8 @@
 }
 
 .time-slot-btn.selected {
-    background: #1565c0;
-    border-color: #1565c0;
+    background: #1565c0 !important;
+    border-color: #1565c0 !important;
     box-shadow: 0 4px 12px rgba(21, 101, 192, 0.4);
 }
 
@@ -222,6 +240,7 @@
     text-align: center;
     padding: 20px;
     color: #666;
+    grid-column: 1 / -1;
 }
 
 .no-slots {
@@ -282,7 +301,7 @@
 
 /* 響應式設計 */
 @media (max-width: 640px) {
-    .time-slots-grid {
+    #time-slots {
         grid-template-columns: repeat(3, 1fr);
     }
     
@@ -296,7 +315,7 @@
 }
 
 @media (max-width: 480px) {
-    .time-slots-grid {
+    #time-slots {
         grid-template-columns: repeat(2, 1fr);
     }
 }
