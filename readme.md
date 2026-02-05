@@ -1,4 +1,5 @@
-預約系統 WordPress 外掛 by WumetaX
+預約系統 WordPress 外掛 by Wumetax
+
 一個功能完整的 WordPress 預約管理系統，支援前台線上預約、後台管理、日曆檢視和時段衝突檢查。
 
 功能特色
