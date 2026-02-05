@@ -34,16 +34,13 @@ jQuery(document).ready(function($) {
         }
     }
     
-    // 顯示預約詳情側邊面板
     function showBookingModal(bookingId) {
         var overlay = $('#booking-modal-overlay');
         var modalBody = $('#booking-modal-body');
         
-        // 顯示面板
         overlay.fadeIn(300);
         modalBody.html('<p>載入中...</p>');
         
-        // 載入預約詳情
         $.ajax({
             url: bookingCalendarData.ajaxurl,
             type: 'POST',
@@ -66,19 +63,16 @@ jQuery(document).ready(function($) {
         });
     }
     
-    // 關閉面板 - 點擊關閉按鈕
     $('.booking-modal-close, #booking-modal-close-btn').on('click', function() {
         $('#booking-modal-overlay').fadeOut(300);
     });
     
-    // 關閉面板 - 點擊遮罩
     $('#booking-modal-overlay').on('click', function(e) {
         if ($(e.target).hasClass('booking-modal-overlay')) {
             $(this).fadeOut(300);
         }
     });
     
-    // ESC 鍵關閉面板
     $(document).on('keydown', function(e) {
         if (e.key === 'Escape' && $('#booking-modal-overlay').is(':visible')) {
             $('#booking-modal-overlay').fadeOut(300);
