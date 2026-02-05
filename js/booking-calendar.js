@@ -20,10 +20,7 @@ jQuery(document).ready(function($) {
                 events: bookingCalendarData.bookings,
                 eventClick: function(info) {
                     info.jsEvent.preventDefault();
-                    
                     var bookingId = info.event.extendedProps.bookingId;
-                    
-                    // 顯示彈出視窗
                     showBookingModal(bookingId);
                 },
                 eventTimeFormat: {
@@ -37,14 +34,16 @@ jQuery(document).ready(function($) {
         }
     }
     
-    // 顯示預約詳情彈出視窗
+    // 顯示預約詳情側邊面板
     function showBookingModal(bookingId) {
-        var modal = $('#booking-modal');
+        var overlay = $('#booking-modal-overlay');
         var modalBody = $('#booking-modal-body');
         
+        // 顯示面板
+        overlay.fadeIn(300);
         modalBody.html('<p>載入中...</p>');
-        modal.show();
         
+        // 載入預約詳情
         $.ajax({
             url: bookingCalendarData.ajaxurl,
             type: 'POST',
@@ -62,20 +61,27 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function() {
-                modalBody.html('<p class="error">載入失敗</p>');
+                modalBody.html('<p class="error">載入失敗，請重試</p>');
             }
         });
     }
     
-    // 關閉彈出視窗
+    // 關閉面板 - 點擊關閉按鈕
     $('.booking-modal-close, #booking-modal-close-btn').on('click', function() {
-        $('#booking-modal').hide();
+        $('#booking-modal-overlay').fadeOut(300);
     });
     
-    // 點擊背景關閉
-    $('#booking-modal').on('click', function(e) {
-        if (e.target === this) {
-            $(this).hide();
+    // 關閉面板 - 點擊遮罩
+    $('#booking-modal-overlay').on('click', function(e) {
+        if ($(e.target).hasClass('booking-modal-overlay')) {
+            $(this).fadeOut(300);
+        }
+    });
+    
+    // ESC 鍵關閉面板
+    $(document).on('keydown', function(e) {
+        if (e.key === 'Escape' && $('#booking-modal-overlay').is(':visible')) {
+            $('#booking-modal-overlay').fadeOut(300);
         }
     });
 });
