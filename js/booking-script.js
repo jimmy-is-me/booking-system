@@ -1,28 +1,104 @@
 jQuery(document).ready(function($) {
-    // 監聽日期和時間變更,檢查可用性
-    $('#booking_date, #booking_time, #booking_duration').on('change', function() {
+    var currentDate = '';
+    var currentDuration = '';
+    
+    // 表單驗證函數
+    function validateField(field, errorId, validationFunc, errorMessage) {
+        var value = field.val().trim();
+        var errorElement = $('#' + errorId);
+        
+        if (!validationFunc(value)) {
+            errorElement.text(errorMessage).show();
+            field.addClass('error');
+            return false;
+        } else {
+            errorElement.text('').hide();
+            field.removeClass('error');
+            return true;
+        }
+    }
+    
+    // 驗證Email
+    function isValidEmail(email) {
+        var re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+    }
+    
+    // 驗證電話
+    function isValidPhone(phone) {
+        return phone.length >= 8;
+    }
+    
+    // 載入可用時段
+    function loadAvailableTimes() {
         var date = $('#booking_date').val();
-        var time = $('#booking_time').val();
         var duration = $('#booking_duration').val();
         
-        if (date && time) {
+        if (!date || !duration) {
+            return;
+        }
+        
+        currentDate = date;
+        currentDuration = duration;
+        
+        $('#booking_time').prop('disabled', true).html('<option value="">載入中...</option>');
+        
+        $.ajax({
+            url: bookingAjax.ajaxurl,
+            type: 'POST',
+            data: {
+                action: 'get_available_times',
+                nonce: bookingAjax.nonce,
+                date: date,
+                duration: duration
+            },
+            success: function(response) {
+                var timeSelect = $('#booking_time');
+                timeSelect.html('<option value="">請選擇時間</option>');
+                
+                if (response.times && response.times.length > 0) {
+                    $.each(response.times, function(index, time) {
+                        timeSelect.append('<option value="' + time + '">' + time + '</option>');
+                    });
+                    timeSelect.prop('disabled', false);
+                } else {
+                    timeSelect.html('<option value="">此日期無可用時段</option>');
+                }
+            },
+            error: function() {
+                $('#booking_time').html('<option value="">載入失敗</option>');
+            }
+        });
+    }
+    
+    // 監聽日期和時長變更
+    $('#booking_date, #booking_duration').on('change', function() {
+        loadAvailableTimes();
+        $('#availability-message').html('');
+    });
+    
+    // 監聽時間選擇
+    $('#booking_time').on('change', function() {
+        var time = $(this).val();
+        
+        if (time && currentDate && currentDuration) {
             $.ajax({
                 url: bookingAjax.ajaxurl,
                 type: 'POST',
                 data: {
                     action: 'check_availability',
                     nonce: bookingAjax.nonce,
-                    date: date,
+                    date: currentDate,
                     time: time,
-                    duration: duration
+                    duration: currentDuration
                 },
                 success: function(response) {
                     var messageDiv = $('#availability-message');
                     if (response.available) {
-                        messageDiv.html('<span style="color: green;">✓ ' + response.message + '</span>');
+                        messageDiv.html('<span class="success">' + response.message + '</span>');
                         $('.submit-booking-btn').prop('disabled', false);
                     } else {
-                        messageDiv.html('<span style="color: red;">✗ ' + response.message + '</span>');
+                        messageDiv.html('<span class="error">' + response.message + '</span>');
                         $('.submit-booking-btn').prop('disabled', true);
                     }
                 }
@@ -30,9 +106,52 @@ jQuery(document).ready(function($) {
         }
     });
     
+    // 即時驗證
+    $('#booking_name').on('blur', function() {
+        validateField($(this), 'error_name', function(val) {
+            return val.length > 0;
+        }, bookingAjax.messages.required);
+    });
+    
+    $('#booking_email').on('blur', function() {
+        validateField($(this), 'error_email', isValidEmail, bookingAjax.messages.invalid_email);
+    });
+    
+    $('#booking_phone').on('blur', function() {
+        validateField($(this), 'error_phone', isValidPhone, bookingAjax.messages.invalid_phone);
+    });
+    
     // 提交預約表單
     $('#booking-form').on('submit', function(e) {
         e.preventDefault();
+        
+        // 清除之前的錯誤訊息
+        $('.error-message').text('').hide();
+        $('.form-group input, .form-group select').removeClass('error');
+        
+        // 驗證所有必填欄位
+        var isValid = true;
+        
+        isValid = validateField($('#booking_name'), 'error_name', function(val) {
+            return val.length > 0;
+        }, bookingAjax.messages.required) && isValid;
+        
+        isValid = validateField($('#booking_email'), 'error_email', isValidEmail, bookingAjax.messages.invalid_email) && isValid;
+        
+        isValid = validateField($('#booking_phone'), 'error_phone', isValidPhone, bookingAjax.messages.invalid_phone) && isValid;
+        
+        isValid = validateField($('#booking_date'), 'error_date', function(val) {
+            return val.length > 0;
+        }, bookingAjax.messages.required) && isValid;
+        
+        isValid = validateField($('#booking_time'), 'error_time', function(val) {
+            return val.length > 0;
+        }, bookingAjax.messages.select_time) && isValid;
+        
+        if (!isValid) {
+            $('#booking-response').html('<div class="error-message">請修正標示的錯誤欄位</div>');
+            return;
+        }
         
         var formData = {
             action: 'submit_booking',
@@ -52,6 +171,7 @@ jQuery(document).ready(function($) {
             data: formData,
             beforeSend: function() {
                 $('.submit-booking-btn').prop('disabled', true).text('送出中...');
+                $('#booking-response').html('');
             },
             success: function(response) {
                 var responseDiv = $('#booking-response');
@@ -59,13 +179,28 @@ jQuery(document).ready(function($) {
                     responseDiv.html('<div class="success-message">' + response.data.message + '</div>');
                     $('#booking-form')[0].reset();
                     $('#availability-message').html('');
+                    $('#booking_time').prop('disabled', true).html('<option value="">請先選擇日期和時長</option>');
+                    
+                    // 滾動到成功訊息
+                    $('html, body').animate({
+                        scrollTop: responseDiv.offset().top - 100
+                    }, 500);
                 } else {
-                    responseDiv.html('<div class="error-message">' + response.data.message + '</div>');
+                    if (response.data.errors) {
+                        // 顯示各欄位錯誤
+                        $.each(response.data.errors, function(field, message) {
+                            $('#error_' + field).text(message).show();
+                            $('#booking_' + field).addClass('error');
+                        });
+                        responseDiv.html('<div class="error-message">' + response.data.message + '</div>');
+                    } else {
+                        responseDiv.html('<div class="error-message">' + response.data.message + '</div>');
+                    }
                 }
                 $('.submit-booking-btn').prop('disabled', false).text('送出預約');
             },
             error: function() {
-                $('#booking-response').html('<div class="error-message">發生錯誤,請稍後再試</div>');
+                $('#booking-response').html('<div class="error-message">發生錯誤，請稍後再試</div>');
                 $('.submit-booking-btn').prop('disabled', false).text('送出預約');
             }
         });
