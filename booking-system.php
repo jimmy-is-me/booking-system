@@ -2,7 +2,7 @@
 /**
  * Plugin Name: 預約系統 by WumetaX
  * Description: 完整的預約功能,包含前台預約、後台管理、時段衝突檢查 | 由 WumetaX 專業開發
- * Version: 2.5
+ * Version: 2.7
  * Author: WumetaX
  * Author URI: https://wumetax.com
  * Text Domain: booking-system
@@ -12,7 +12,10 @@ if (!defined('ABSPATH')) exit;
 
 class BookingSystem {
     
+    private $table_version = '1.1';
+    
     public function __construct() {
+        add_action('plugins_loaded', array($this, 'check_and_update_table'));
         add_action('init', array($this, 'set_charset'));
         add_action('init', array($this, 'register_booking_post_type'));
         add_action('init', array($this, 'register_booking_statuses'));
@@ -46,15 +49,21 @@ class BookingSystem {
         
         add_action('admin_menu', array($this, 'remove_post_attributes'));
         
-        register_activation_hook(__FILE__, array($this, 'create_blocked_dates_table'));
+        register_activation_hook(__FILE__, array($this, 'plugin_activation'));
     }
     
-    public function admin_footer_text($text) {
-        $screen = get_current_screen();
-        if ($screen && (strpos($screen->id, 'booking') !== false)) {
-            $text = '<span style="color: #666;">預約系統 by <a href="https://wumetax.com" target="_blank" style="color: #0073aa; text-decoration: none; font-weight: 600;">WumetaX</a> | 版本 2.5</span>';
+    public function plugin_activation() {
+        $this->create_blocked_dates_table();
+        update_option('booking_blocked_dates_table_version', $this->table_version);
+    }
+    
+    public function check_and_update_table() {
+        $current_version = get_option('booking_blocked_dates_table_version', '0');
+        
+        if (version_compare($current_version, $this->table_version, '<')) {
+            $this->create_blocked_dates_table();
+            update_option('booking_blocked_dates_table_version', $this->table_version);
         }
-        return $text;
     }
     
     public function create_blocked_dates_table() {
@@ -62,19 +71,41 @@ class BookingSystem {
         $table_name = $wpdb->prefix . 'booking_blocked_dates';
         $charset_collate = $wpdb->get_charset_collate();
         
+        $existing_columns = $wpdb->get_results("SHOW COLUMNS FROM $table_name", ARRAY_A);
+        $has_correct_structure = false;
+        
+        if (!empty($existing_columns)) {
+            $column_names = array_column($existing_columns, 'Field');
+            if (in_array('start_date', $column_names) && in_array('end_date', $column_names)) {
+                $has_correct_structure = true;
+            }
+        }
+        
+        if (!$has_correct_structure && $wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name) {
+            $wpdb->query("DROP TABLE IF EXISTS $table_name");
+        }
+        
         $sql = "CREATE TABLE IF NOT EXISTS $table_name (
             id mediumint(9) NOT NULL AUTO_INCREMENT,
             start_date date NOT NULL,
             end_date date NOT NULL,
             note text,
             created_at datetime DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
+            PRIMARY KEY  (id),
             KEY start_date (start_date),
             KEY end_date (end_date)
         ) $charset_collate;";
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
+    }
+    
+    public function admin_footer_text($text) {
+        $screen = get_current_screen();
+        if ($screen && (strpos($screen->id, 'booking') !== false)) {
+            $text = '<span style="color: #666;">預約系統 by <a href="https://wumetax.com" target="_blank" style="color: #0073aa; text-decoration: none; font-weight: 600;">WumetaX</a> | 版本 2.7</span>';
+        }
+        return $text;
     }
     
     public function set_charset() {
@@ -183,8 +214,8 @@ class BookingSystem {
     }
     
     public function enqueue_frontend_scripts() {
-        wp_enqueue_style('booking-style', plugin_dir_url(__FILE__) . 'css/booking-style.css', array(), '2.5');
-        wp_enqueue_script('booking-script', plugin_dir_url(__FILE__) . 'js/booking-script.js', array('jquery'), '2.5', true);
+        wp_enqueue_style('booking-style', plugin_dir_url(__FILE__) . 'css/booking-style.css', array(), '2.7');
+        wp_enqueue_script('booking-script', plugin_dir_url(__FILE__) . 'js/booking-script.js', array('jquery'), '2.7', true);
         
         $settings = $this->get_booking_settings();
         
@@ -224,7 +255,16 @@ class BookingSystem {
             return array();
         }
         
+        $columns = $wpdb->get_results("SHOW COLUMNS FROM $table_name LIKE 'start_date'");
+        if (empty($columns)) {
+            return array();
+        }
+        
         $results = $wpdb->get_results("SELECT start_date, end_date FROM $table_name ORDER BY start_date", ARRAY_A);
+        
+        if ($wpdb->last_error) {
+            return array();
+        }
         
         $all_dates = array();
         foreach ($results as $row) {
@@ -248,6 +288,11 @@ class BookingSystem {
         $table_name = $wpdb->prefix . 'booking_blocked_dates';
         
         if ($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
+            return false;
+        }
+        
+        $columns = $wpdb->get_results("SHOW COLUMNS FROM $table_name LIKE 'start_date'");
+        if (empty($columns)) {
             return false;
         }
         
@@ -809,7 +854,6 @@ class BookingSystem {
                 <a href="#blocked-dates" class="nav-tab">封鎖日期管理</a>
             </h2>
             
-            <!-- 一般設定 -->
             <div id="general-settings" class="tab-content" style="display: block;">
                 <form method="post" action="" style="max-width: 900px; margin-top: 20px;">
                     <?php wp_nonce_field('booking_settings_action', 'booking_settings_nonce'); ?>
@@ -945,7 +989,6 @@ class BookingSystem {
                 </form>
             </div>
             
-            <!-- 封鎖日期管理 -->
             <div id="blocked-dates" class="tab-content" style="display: none; margin-top: 20px;">
                 <div style="max-width: 1100px;">
                     <h3>新增封鎖日期</h3>
@@ -961,7 +1004,7 @@ class BookingSystem {
                                 <th><label for="new_blocked_start_date">開始日期</label></th>
                                 <td>
                                     <input type="date" id="new_blocked_start_date" style="padding: 8px; font-size: 14px; width: 200px;">
-                                    <p class="description">封鎖的起始日期(單一日期請填寫相同日期)</p>
+                                    <p class="description">封鎖的起始日期</p>
                                 </td>
                             </tr>
                             <tr>
@@ -975,7 +1018,7 @@ class BookingSystem {
                                 <th><label for="new_blocked_note">備註說明</label></th>
                                 <td>
                                     <input type="text" id="new_blocked_note" placeholder="例如：春節假期、公司年假、設備維修" style="padding: 8px; font-size: 14px; width: 400px;">
-                                    <p class="description">選填,記錄此區間封鎖的原因,方便日後管理</p>
+                                    <p class="description">選填,記錄此區間封鎖的原因</p>
                                 </td>
                             </tr>
                         </table>
@@ -983,9 +1026,6 @@ class BookingSystem {
                     </div>
                     
                     <h3>已封鎖的日期列表</h3>
-                    <p class="description" style="margin-bottom: 15px;">
-                        以下是所有已設定的封鎖日期區間。客戶將無法在這些日期範圍內進行預約。
-                    </p>
                     <table class="wp-list-table widefat fixed striped">
                         <thead>
                             <tr>
@@ -1006,10 +1046,6 @@ class BookingSystem {
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($blocked_dates as $blocked): ?>
-                                    <?php
-                                    $is_range = $blocked->start_date !== $blocked->end_date;
-                                    $date_display = $is_range ? '區間' : '單日';
-                                    ?>
                                     <tr data-id="<?php echo esc_attr($blocked->id); ?>">
                                         <td><strong><?php echo esc_html($blocked->start_date); ?></strong></td>
                                         <td><strong><?php echo esc_html($blocked->end_date); ?></strong></td>
@@ -1170,7 +1206,7 @@ class BookingSystem {
     
     public function enqueue_admin_scripts($hook) {
         if ('edit.php' === $hook && isset($_GET['post_type']) && $_GET['post_type'] === 'booking') {
-            wp_enqueue_script('booking-admin-list', plugin_dir_url(__FILE__) . 'js/booking-admin-list.js', array('jquery'), '2.5', true);
+            wp_enqueue_script('booking-admin-list', plugin_dir_url(__FILE__) . 'js/booking-admin-list.js', array('jquery'), '2.7', true);
             wp_localize_script('booking-admin-list', 'bookingAdminData', array(
                 'ajaxurl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('booking_admin_nonce')
@@ -1178,7 +1214,7 @@ class BookingSystem {
         }
         
         if ('booking_page_booking-settings' === $hook) {
-            wp_enqueue_script('booking-settings', plugin_dir_url(__FILE__) . 'js/booking-settings.js', array('jquery'), '2.5', true);
+            wp_enqueue_script('booking-settings', plugin_dir_url(__FILE__) . 'js/booking-settings.js', array('jquery'), '2.7', true);
             wp_localize_script('booking-settings', 'bookingAdminData', array(
                 'ajaxurl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('booking_admin_nonce')
@@ -1190,8 +1226,8 @@ class BookingSystem {
             wp_enqueue_script('fullcalendar', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js', array(), '6.1.10', true);
             wp_enqueue_script('fullcalendar-zh', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/zh-tw.global.min.js', array('fullcalendar'), '6.1.10', true);
             
-            wp_enqueue_style('booking-admin-style', plugin_dir_url(__FILE__) . 'css/booking-admin.css', array(), '2.5');
-            wp_enqueue_script('booking-calendar', plugin_dir_url(__FILE__) . 'js/booking-calendar.js', array('jquery', 'fullcalendar', 'fullcalendar-zh'), '2.5', true);
+            wp_enqueue_style('booking-admin-style', plugin_dir_url(__FILE__) . 'css/booking-admin.css', array(), '2.7');
+            wp_enqueue_script('booking-calendar', plugin_dir_url(__FILE__) . 'js/booking-calendar.js', array('jquery', 'fullcalendar', 'fullcalendar-zh'), '2.7', true);
             
             $bookings = $this->get_all_bookings_for_calendar();
             wp_localize_script('booking-calendar', 'bookingCalendarData', array(
