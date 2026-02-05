@@ -29,6 +29,53 @@ jQuery(document).ready(function($) {
         return phone.length >= 8;
     }
     
+    // 停用不可預約的日期
+    function disableUnavailableDates(date) {
+        var dateString = $.datepicker.formatDate('yy-mm-dd', date);
+        var dayOfWeek = date.getDay();
+        
+        // 將 JavaScript 的星期日(0)轉換為 7
+        var dayNumber = dayOfWeek === 0 ? 7 : dayOfWeek;
+        
+        // 檢查是否在可預約星期內
+        if (bookingAjax.availableDays.indexOf(dayNumber.toString()) === -1) {
+            return [false, 'unavailable', '此星期不開放預約'];
+        }
+        
+        // 檢查是否在封鎖日期內
+        if (bookingAjax.blockedDates.indexOf(dateString) !== -1) {
+            return [false, 'blocked', '此日期不開放預約'];
+        }
+        
+        return [true, '', ''];
+    }
+    
+    // 如果瀏覽器支援原生 date picker，用 JavaScript 控制
+    var dateInput = $('#booking_date');
+    
+    dateInput.on('change', function() {
+        var selectedDate = new Date($(this).val());
+        var dayOfWeek = selectedDate.getDay();
+        var dayNumber = dayOfWeek === 0 ? 7 : dayOfWeek;
+        var dateString = $(this).val();
+        
+        // 檢查星期
+        if (bookingAjax.availableDays.indexOf(dayNumber.toString()) === -1) {
+            $('#error_date').text('此星期不開放預約，請選擇其他日期').show();
+            $(this).val('');
+            return;
+        }
+        
+        // 檢查封鎖日期
+        if (bookingAjax.blockedDates.indexOf(dateString) !== -1) {
+            $('#error_date').text('此日期不開放預約，請選擇其他日期').show();
+            $(this).val('');
+            return;
+        }
+        
+        $('#error_date').text('').hide();
+    });
+    
     // 載入可用時段
     function loadAvailableTimes() {
         var date = $('#booking_date').val();
@@ -104,21 +151,6 @@ jQuery(document).ready(function($) {
                 }
             });
         }
-    });
-    
-    // 即時驗證
-    $('#booking_name').on('blur', function() {
-        validateField($(this), 'error_name', function(val) {
-            return val.length > 0;
-        }, bookingAjax.messages.required);
-    });
-    
-    $('#booking_email').on('blur', function() {
-        validateField($(this), 'error_email', isValidEmail, bookingAjax.messages.invalid_email);
-    });
-    
-    $('#booking_phone').on('blur', function() {
-        validateField($(this), 'error_phone', isValidPhone, bookingAjax.messages.invalid_phone);
     });
     
     // 提交預約表單
