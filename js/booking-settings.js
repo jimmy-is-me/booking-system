@@ -36,29 +36,36 @@ jQuery(document).ready(function($) {
                     $('#new_blocked_note').val('');
                     
                     // 新增到列表
-                    var row = response.data.data;
+                    var row = response.data;
+                    var isRange = row.start_date !== row.end_date;
+                    var noteDisplay = row.note ? '<span class="dashicons dashicons-info" style="color: #2271b1;"></span> ' + row.note : '<span style="color: #999;">-</span>';
+                    
                     var newRow = '<tr data-id="' + row.id + '">' +
                         '<td><strong>' + row.start_date + '</strong></td>' +
                         '<td><strong>' + row.end_date + '</strong></td>' +
-                        '<td>' + (row.note ? row.note : '-') + '</td>' +
+                        '<td>' + noteDisplay + '</td>' +
                         '<td>' + new Date(row.created_at).toLocaleString('zh-TW') + '</td>' +
-                        '<td><button type="button" class="button button-small remove-blocked-date" data-id="' + row.id + '">刪除</button></td>' +
+                        '<td><button type="button" class="button button-small remove-blocked-date" data-id="' + row.id + '" style="color: #b32d2e;">刪除</button></td>' +
                         '</tr>';
                     
                     var tbody = $('#blocked-dates-list');
                     if (tbody.find('td[colspan="5"]').length > 0) {
                         tbody.html(newRow);
                     } else {
-                        tbody.append(newRow);
+                        tbody.prepend(newRow);
                     }
                     
-                    alert('封鎖日期已新增');
+                    // 顯示成功提示
+                    var message = isRange ? '已新增日期區間：' + row.start_date + ' 至 ' + row.end_date : '已新增封鎖日期：' + row.start_date;
+                    alert(message);
                 } else {
                     alert('新增失敗：' + response.data.message);
                 }
             },
-            error: function() {
-                alert('發生錯誤，請重試');
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', status, error);
+                console.error('Response:', xhr.responseText);
+                alert('發生錯誤，請重試。錯誤訊息：' + error);
             },
             complete: function() {
                 $('#add_blocked_date_btn').prop('disabled', false).text('新增封鎖日期');
@@ -70,8 +77,15 @@ jQuery(document).ready(function($) {
     $(document).on('click', '.remove-blocked-date', function() {
         var btn = $(this);
         var id = btn.data('id');
+        var row = btn.closest('tr');
+        var startDate = row.find('td:first strong').text();
+        var endDate = row.find('td:eq(1) strong').text();
         
-        if (!confirm('確定要刪除此封鎖日期嗎？')) {
+        var confirmMsg = startDate === endDate ? 
+            '確定要刪除 ' + startDate + ' 的封鎖設定嗎？' : 
+            '確定要刪除 ' + startDate + ' 至 ' + endDate + ' 的封鎖區間嗎？';
+        
+        if (!confirm(confirmMsg)) {
             return;
         }
         
@@ -88,15 +102,15 @@ jQuery(document).ready(function($) {
             },
             success: function(response) {
                 if (response.success) {
-                    btn.closest('tr').fadeOut(300, function() {
+                    row.fadeOut(300, function() {
                         $(this).remove();
                         
                         // 如果沒有資料了，顯示空狀態
                         if ($('#blocked-dates-list tr').length === 0) {
-                            $('#blocked-dates-list').html('<tr><td colspan="5" style="text-align: center; padding: 30px;">目前沒有封鎖日期</td></tr>');
+                            $('#blocked-dates-list').html('<tr><td colspan="5" style="text-align: center; padding: 30px; color: #666;">目前沒有封鎖日期<br><small style="color: #999;">您可以在上方新增需要封鎖的日期或日期區間</small></td></tr>');
                         }
                     });
-                    alert('已刪除');
+                    alert('已成功刪除封鎖日期');
                 } else {
                     alert('刪除失敗：' + response.data.message);
                     btn.prop('disabled', false).text('刪除');
@@ -107,5 +121,13 @@ jQuery(document).ready(function($) {
                 btn.prop('disabled', false).text('刪除');
             }
         });
+    });
+    
+    // 自動同步開始和結束日期(單一日期使用)
+    $('#new_blocked_start_date').on('change', function() {
+        var endDateInput = $('#new_blocked_end_date');
+        if (!endDateInput.val()) {
+            endDateInput.val($(this).val());
+        }
     });
 });
