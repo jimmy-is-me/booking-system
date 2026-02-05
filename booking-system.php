@@ -242,73 +242,72 @@ class BookingSystem {
         wp_send_json(array('times' => $available_times));
     }
     
-    public function render_booking_form() {
-        $settings = $this->get_booking_settings();
-        
-        ob_start();
-        ?>
-        <div class="booking-form-container">
-            <h3>線上預約</h3>
-            <form id="booking-form" class="booking-form" novalidate>
-                <div class="form-group">
-                    <label for="booking_name">姓名 <span class="required">*</span></label>
-                    <input type="text" id="booking_name" name="booking_name" required>
-                    <span class="error-message" id="error_name"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label for="booking_email">Email <span class="required">*</span></label>
-                    <input type="email" id="booking_email" name="booking_email" required>
-                    <span class="error-message" id="error_email"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label for="booking_phone">電話 <span class="required">*</span></label>
-                    <input type="tel" id="booking_phone" name="booking_phone" required>
-                    <span class="error-message" id="error_phone"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label for="booking_date">預約日期 <span class="required">*</span></label>
-                    <input type="date" id="booking_date" name="booking_date" required min="<?php echo date('Y-m-d'); ?>">
-                    <span class="error-message" id="error_date"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label for="booking_duration">預約時長 <span class="required">*</span></label>
-                    <select id="booking_duration" name="booking_duration" required>
-                        <?php foreach ($settings['available_durations'] as $duration): ?>
-                            <option value="<?php echo esc_attr($duration); ?>" <?php selected($duration, $settings['default_duration']); ?>>
-                                <?php echo esc_html($duration); ?> 分鐘
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <span class="error-message" id="error_duration"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label for="booking_time">預約時間 <span class="required">*</span></label>
-                    <select id="booking_time" name="booking_time" required disabled>
-                        <option value="">請先選擇日期和時長</option>
-                    </select>
-                    <span class="error-message" id="error_time"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label for="booking_note">備註</label>
-                    <textarea id="booking_note" name="booking_note" rows="4"></textarea>
-                </div>
-                
-                <div id="availability-message" class="availability-message"></div>
-                
-                <button type="submit" class="submit-booking-btn">送出預約</button>
-            </form>
+public function render_booking_form() {
+    $settings = $this->get_booking_settings();
+    
+    ob_start();
+    ?>
+    <div class="booking-form-container">
+        <h3>線上預約</h3>
+        <form id="booking-form" class="booking-form" novalidate>
+            <div class="form-group">
+                <label for="booking_name">姓名 <span class="required">*</span></label>
+                <input type="text" id="booking_name" name="booking_name" required>
+                <span class="error-message" id="error_name"></span>
+            </div>
             
-            <div id="booking-response" class="booking-response"></div>
-        </div>
-        <?php
-        return ob_get_clean();
-    }
+            <div class="form-group">
+                <label for="booking_email">Email <span class="required">*</span></label>
+                <input type="email" id="booking_email" name="booking_email" required>
+                <span class="error-message" id="error_email"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="booking_phone">電話 <span class="required">*</span></label>
+                <input type="tel" id="booking_phone" name="booking_phone" required>
+                <span class="error-message" id="error_phone"></span>
+            </div>
+            
+            <div class="form-group">
+                <label>預約日期 <span class="required">*</span></label>
+                <div id="booking-calendar-picker"></div>
+                <input type="hidden" id="booking_date" name="booking_date" required>
+                <span class="error-message" id="error_date"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="booking_duration">預約時長 <span class="required">*</span></label>
+                <select id="booking_duration" name="booking_duration" required>
+                    <?php foreach ($settings['available_durations'] as $duration): ?>
+                        <option value="<?php echo esc_attr($duration); ?>" <?php selected($duration, $settings['default_duration']); ?>>
+                            <?php echo esc_html($duration); ?> 分鐘
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <span class="error-message" id="error_duration"></span>
+            </div>
+            
+            <div class="form-group" id="time-slots-container" style="display: none;">
+                <label>預約時間 <span class="required">*</span></label>
+                <div id="selected-date-display" class="selected-date-display"></div>
+                <div id="time-slots" class="time-slots-grid"></div>
+                <input type="hidden" id="booking_time" name="booking_time" required>
+                <span class="error-message" id="error_time"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="booking_note">備註</label>
+                <textarea id="booking_note" name="booking_note" rows="4"></textarea>
+            </div>
+            
+            <button type="submit" class="submit-booking-btn">送出預約</button>
+        </form>
+        
+        <div id="booking-response" class="booking-response"></div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
     
     public function check_time_availability() {
         check_ajax_referer('booking_nonce', 'nonce');
