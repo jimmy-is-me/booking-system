@@ -46,21 +46,6 @@
 3. 選擇下載的 ZIP 檔案並安裝
 4. 啟用外掛
 
-## 檔案結構
-
-booking-system/
-├── booking-system.php # 主程式檔案
-├── css/
-│ ├── booking-style.css # 前台樣式
-│ └── booking-admin.css # 後台樣式
-├── js/
-│ ├── booking-script.js # 前台預約邏輯
-│ ├── booking-admin-list.js # 後台列表管理
-│ ├── booking-settings.js # 設定頁面邏輯
-│ └── booking-calendar.js # 日曆功能
-└── README.md # 說明文件
-
-
 ## 使用方式
 
 ### 前台顯示預約表單
