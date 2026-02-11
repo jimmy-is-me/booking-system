@@ -304,45 +304,56 @@ class BookingSystem {
         return $count > 0;
     }
     
-    public function get_available_times() {
-        check_ajax_referer('booking_nonce', 'nonce');
-        
-        $date = sanitize_text_field($_POST['date']);
-        $duration = isset($_POST['duration']) ? intval($_POST['duration']) : 60;
-        
-        if ($this->is_date_blocked($date)) {
-            wp_send_json(array('times' => array()));
-            return;
-        }
-        
-        $settings = $this->get_booking_settings();
-        $day_of_week = date('N', strtotime($date));
-        
-        if (!in_array($day_of_week, $settings['available_days'])) {
-            wp_send_json(array('times' => array()));
-            return;
-        }
-        
-        $start_time = $settings['start_time'];
-        $end_time = $settings['end_time'];
-        $interval = intval($settings['time_slot_interval']);
-        
-        $available_times = array();
-        $current_time = strtotime($start_time);
-        $end_timestamp = strtotime($end_time);
-        
-        while ($current_time < $end_timestamp) {
-            $time_str = date('H:i', $current_time);
-            
-            if ($this->is_time_slot_available($date, $time_str, $duration)) {
-                $available_times[] = $time_str;
-            }
-            
-            $current_time += ($interval * 60);
-        }
-        
-        wp_send_json(array('times' => $available_times));
+public function get_available_times() {
+    // 修改: 加強安全檢查
+    if (!check_ajax_referer('booking_nonce', 'nonce', false)) {
+        error_log('Booking System: Nonce verification failed');
+        wp_send_json_error(array('message' => '安全驗證失敗'));
+        return;
     }
+    
+    // 添加: 檢查必要參數
+    if (!isset($_POST['date']) || !isset($_POST['duration'])) {
+        wp_send_json_error(array('message' => '缺少必要參數'));
+        return;
+    }
+    
+    $date = sanitize_text_field($_POST['date']);
+    $duration = isset($_POST['duration']) ? intval($_POST['duration']) : 60;
+    
+    if ($this->is_date_blocked($date)) {
+        wp_send_json(array('times' => array()));
+        return;
+    }
+    
+    $settings = $this->get_booking_settings();
+    $day_of_week = date('N', strtotime($date));
+    
+    if (!in_array($day_of_week, $settings['available_days'])) {
+        wp_send_json(array('times' => array()));
+        return;
+    }
+    
+    $start_time = $settings['start_time'];
+    $end_time = $settings['end_time'];
+    $interval = intval($settings['time_slot_interval']);
+    
+    $available_times = array();
+    $current_time = strtotime($start_time);
+    $end_timestamp = strtotime($end_time);
+    
+    while ($current_time < $end_timestamp) {
+        $time_str = date('H:i', $current_time);
+        
+        if ($this->is_time_slot_available($date, $time_str, $duration)) {
+            $available_times[] = $time_str;
+        }
+        
+        $current_time += ($interval * 60);
+    }
+    
+    wp_send_json(array('times' => $available_times));
+}
     
     public function render_booking_form() {
         $settings = $this->get_booking_settings();
