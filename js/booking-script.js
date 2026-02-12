@@ -1,16 +1,34 @@
 jQuery(document).ready(function($) {
     var captchaVerified = false;
     
-    // 初始化:載入可預約日期
-    loadAvailableDates();
+    // 當選擇年月時,載入該月的可預約日期
+    $('#booking_year_month').on('change', function() {
+        var selected = $(this).find('option:selected');
+        var year = selected.data('year');
+        var month = selected.data('month');
+        
+        if (!year || !month) {
+            $('#date-group').hide();
+            $('#duration-group').hide();
+            $('#time-group').hide();
+            $('#booking_date').prop('disabled', true).html('<option value="">請先選擇年月</option>');
+            return;
+        }
+        
+        loadAvailableDates(year, month);
+    });
     
-    function loadAvailableDates() {
+    function loadAvailableDates(year, month) {
+        $('#booking_date').prop('disabled', true).html('<option value="">載入中...</option>');
+        
         $.ajax({
             url: bookingAjax.ajaxurl,
             type: 'POST',
             data: {
                 action: 'get_available_dates',
-                nonce: bookingAjax.nonce
+                nonce: bookingAjax.nonce,
+                year: year,
+                month: month
             },
             success: function(response) {
                 var dateSelect = $('#booking_date');
@@ -20,12 +38,18 @@ jQuery(document).ready(function($) {
                     $.each(response.dates, function(index, dateObj) {
                         dateSelect.append('<option value="' + dateObj.date + '">' + dateObj.display + '</option>');
                     });
+                    dateSelect.prop('disabled', false);
+                    $('#date-group').slideDown();
+                    $('#duration-group').slideDown();
+                    $('#booking_duration').prop('disabled', false);
                 } else {
-                    dateSelect.html('<option value="">目前無可預約日期</option>');
+                    dateSelect.html('<option value="">此月份無可預約日期</option>');
+                    $('#date-group').slideDown();
                 }
             },
             error: function() {
                 $('#booking_date').html('<option value="">載入失敗,請重新整理</option>');
+                $('#date-group').slideDown();
             }
         });
     }
@@ -40,11 +64,13 @@ jQuery(document).ready(function($) {
         var duration = $('#booking_duration').val();
         
         if (!date || !duration) {
+            $('#time-group').hide();
             $('#booking_time').prop('disabled', true).html('<option value="">請先選擇日期和時長</option>');
             return;
         }
         
         $('#booking_time').prop('disabled', true).html('<option value="">載入中...</option>');
+        $('#time-group').slideDown();
         
         $.ajax({
             url: bookingAjax.ajaxurl,
@@ -168,6 +194,10 @@ jQuery(document).ready(function($) {
         
         isValid = validateField($('#booking_phone'), 'error_phone', isValidPhone, bookingAjax.messages.invalid_phone) && isValid;
         
+        isValid = validateField($('#booking_year_month'), 'error_year_month', function(val) {
+            return val.length > 0;
+        }, bookingAjax.messages.required) && isValid;
+        
         isValid = validateField($('#booking_date'), 'error_date', function(val) {
             return val.length > 0;
         }, bookingAjax.messages.required) && isValid;
@@ -218,9 +248,9 @@ jQuery(document).ready(function($) {
                     $('#booking-form')[0].reset();
                     captchaVerified = false;
                     
-                    // 重新載入日期選項
-                    loadAvailableDates();
-                    $('#booking_time').prop('disabled', true).html('<option value="">請先選擇日期和時長</option>');
+                    // 重置表單顯示狀態
+                    $('#date-group, #duration-group, #time-group').hide();
+                    $('#booking_date, #booking_duration, #booking_time').prop('disabled', true);
                     
                     $('html, body').animate({
                         scrollTop: responseDiv.offset().top - 100
