@@ -412,40 +412,6 @@ public function get_available_dates() {
     
     wp_send_json_success(array('dates' => $dates));
 }
-
-        
-        $settings = $this->get_booking_settings();
-        $available_days = $settings['available_days'];
-        
-        $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
-        
-        $dates = array();
-        
-        for ($day = 1; $day <= $days_in_month; $day++) {
-            $date = new DateTime("{$year}-{$month}-{$day}");
-            $dateStr = $date->format('Y-m-d');
-            $dayOfWeek = $date->format('N');
-            
-            if (strtotime($dateStr) < strtotime(date('Y-m-d'))) {
-                continue;
-            }
-            
-            if (!in_array($dayOfWeek, $available_days)) {
-                continue;
-            }
-            
-            if ($this->is_date_blocked($dateStr)) {
-                continue;
-            }
-            
-            $dates[] = array(
-                'date' => $dateStr,
-                'display' => $date->format('m/d') . ' (' . $this->get_weekday_name($dayOfWeek) . ')'
-            );
-        }
-        
-        wp_send_json(array('dates' => $dates));
-    }
     
     private function get_weekday_name($day) {
         $names = array(
