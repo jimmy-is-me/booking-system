@@ -16,31 +16,43 @@ jQuery(document).ready(function($) {
             },
             success: function(response) {
                 if (response.success) {
-                    // 更新樣式
-                    var statusColors = {
+                    // 更新顏色
+                    var colors = {
                         'pending_booking': '#ff9800',
                         'confirmed': '#4caf50',
                         'cancelled': '#f44336',
                         'completed': '#2196f3'
                     };
                     
+                    var icons = {
+                        'pending_booking': '🟠',
+                        'confirmed': '🟢',
+                        'cancelled': '🔴',
+                        'completed': '🔵'
+                    };
+                    
                     selectElement.css({
-                        'border-color': statusColors[newStatus],
-                        'color': statusColors[newStatus]
+                        'border-color': colors[newStatus],
+                        'color': colors[newStatus]
                     });
                     
-                    // 顯示提示
-                    var originalText = selectElement.parent().html();
-                    selectElement.parent().append('<span class="status-updated" style="color: #4caf50; margin-left: 10px;">✓</span>');
+                    selectElement.siblings('span').text(icons[newStatus]);
+                    
+                    // 顯示成功訊息
+                    var messageDiv = $('<div class="notice notice-success is-dismissible" style="position: fixed; top: 32px; right: 20px; z-index: 9999; width: 300px;"><p>狀態已更新</p></div>');
+                    $('body').append(messageDiv);
                     
                     setTimeout(function() {
-                        $('.status-updated').fadeOut(300, function() {
+                        messageDiv.fadeOut(300, function() {
                             $(this).remove();
                         });
                     }, 2000);
                 } else {
                     alert('更新失敗: ' + response.data.message);
                 }
+            },
+            error: function() {
+                alert('更新失敗,請稍後再試');
             }
         });
     });
