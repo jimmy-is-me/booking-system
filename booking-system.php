@@ -479,52 +479,6 @@ public function get_available_dates() {
         wp_send_json(array('times' => $available_times));
     }
     
-    public function verify_captcha() {
-        check_ajax_referer('booking_nonce', 'nonce');
-        
-        if (!isset($_POST['answer'])) {
-            wp_send_json_error(array('message' => '缺少驗證答案'));
-            return;
-        }
-        
-        $answer = intval($_POST['answer']);
-        
-        if (!isset($_SESSION)) {
-            session_start();
-        }
-        
-        if (!isset($_SESSION['booking_captcha_answer'])) {
-            wp_send_json_error(array('message' => '驗證碼已過期'));
-            return;
-        }
-        
-        if ($answer === $_SESSION['booking_captcha_answer']) {
-            $_SESSION['booking_captcha_verified'] = true;
-            wp_send_json_success(array('message' => '驗證成功'));
-        } else {
-            wp_send_json_error(array('message' => '驗證碼錯誤'));
-        }
-    }
-    
-    private function generate_captcha() {
-        if (!isset($_SESSION)) {
-            session_start();
-        }
-        
-        $num1 = rand(1, 10);
-        $num2 = rand(1, 10);
-        $answer = $num1 + $num2;
-        
-        $_SESSION['booking_captcha_answer'] = $answer;
-        $_SESSION['booking_captcha_verified'] = false;
-        
-        return array(
-            'question' => "{$num1} + {$num2} = ?",
-            'num1' => $num1,
-            'num2' => $num2
-        );
-    }
-    
 public function render_booking_form() {
     $settings = $this->get_booking_settings();
     
@@ -763,19 +717,6 @@ public function render_booking_form() {
         }
     }
     
-    public function handle_booking_submission() {
-        check_ajax_referer('booking_nonce', 'nonce');
-        
-        header('Content-Type: application/json; charset=utf-8');
-        
-        if (!isset($_SESSION)) {
-            session_start();
-        }
-        
-        if (!isset($_SESSION['booking_captcha_verified']) || !$_SESSION['booking_captcha_verified']) {
-            wp_send_json_error(array('message' => '請先完成驗證碼驗證'));
-            return;
-        }
         
         $name = sanitize_text_field($_POST['name']);
         $email = sanitize_email($_POST['email']);
