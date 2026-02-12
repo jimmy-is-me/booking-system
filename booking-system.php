@@ -525,125 +525,117 @@ public function get_available_dates() {
         );
     }
     
-    public function render_booking_form() {
-        $settings = $this->get_booking_settings();
-        $captcha = $this->generate_captcha();
+public function render_booking_form() {
+    $settings = $this->get_booking_settings();
+    $captcha = $this->generate_captcha();
+    
+    $year_month_options = array();
+    $current_date = new DateTime();
+    
+    for ($i = 0; $i < 12; $i++) {
+        $year = $current_date->format('Y');
+        $month = $current_date->format('m');
+        $display = $current_date->format('Y年m月');
         
-        $year_month_options = array();
-        $current_date = new DateTime();
+        $year_month_options[] = array(
+            'year' => $year,
+            'month' => $month,
+            'display' => $display,
+            'value' => $year . '-' . $month
+        );
         
-        for ($i = 0; $i < 12; $i++) {
-            $year = $current_date->format('Y');
-            $month = $current_date->format('m');
-            $display = $current_date->format('Y年m月');
-            
-            $year_month_options[] = array(
-                'year' => $year,
-                'month' => $month,
-                'display' => $display,
-                'value' => $year . '-' . $month
-            );
-            
-            $current_date->modify('+1 month');
-        }
-        
-        ob_start();
-        ?>
-        <div class="booking-form-container">
-            <h3>線上預約</h3>
-            <form id="booking-form" class="booking-form" novalidate>
-                <div class="form-group">
-                    <label for="booking_name">姓名 <span class="required">*</span></label>
-                    <input type="text" id="booking_name" name="booking_name" required>
-                    <span class="error-message" id="error_name"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label for="booking_email">Email <span class="required">*</span></label>
-                    <input type="email" id="booking_email" name="booking_email" required>
-                    <span class="error-message" id="error_email"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label for="booking_phone">電話 <span class="required">*</span></label>
-                    <input type="tel" id="booking_phone" name="booking_phone" required>
-                    <span class="error-message" id="error_phone"></span>
-                </div>
-                
-<div class="form-group">
-    <label for="booking_year">選擇年份 <span class="required">*</span></label>
-    <select id="booking_year" name="booking_year" required>
-        <option value="">請選擇年份</option>
-        <?php 
-        $current_year = date('Y');
-        for ($y = 0; $y < 2; $y++): 
-            $year = $current_year + $y;
-        ?>
-            <option value="<?php echo esc_attr($year); ?>"><?php echo esc_html($year); ?>年</option>
-        <?php endfor; ?>
-    </select>
-    <span class="error-message" id="error_year"></span>
-</div>
-
-<div class="form-group" id="month-group" style="display: none;">
-    <label for="booking_month">選擇月份 <span class="required">*</span></label>
-    <select id="booking_month" name="booking_month" required disabled>
-        <option value="">請先選擇年份</option>
-    </select>
-    <span class="error-message" id="error_month"></span>
-</div>
-
-<div class="form-group" id="date-group" style="display: none;">
-    <label for="booking_date">預約日期 <span class="required">*</span></label>
-    <select id="booking_date" name="booking_date" required disabled>
-        <option value="">請先選擇月份</option>
-    </select>
-    <span class="error-message" id="error_date"></span>
-</div>
-
-                
-                <div class="form-group" id="duration-group" style="display: none;">
-                    <label for="booking_duration">預約時長 <span class="required">*</span></label>
-                    <select id="booking_duration" name="booking_duration" required disabled>
-                        <?php foreach ($settings['available_durations'] as $duration): ?>
-                            <option value="<?php echo esc_attr($duration); ?>" <?php selected($duration, $settings['default_duration']); ?>>
-                                <?php echo esc_html($duration); ?> 分鐘
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <span class="error-message" id="error_duration"></span>
-                </div>
-                
-                <div class="form-group" id="time-group" style="display: none;">
-                    <label for="booking_time">預約時間 <span class="required">*</span></label>
-                    <select id="booking_time" name="booking_time" required disabled>
-                        <option value="">請先選擇日期和時長</option>
-                    </select>
-                    <span class="error-message" id="error_time"></span>
-                </div>
-                
-                <div class="form-group">
-                    <label for="booking_note">備註</label>
-                    <textarea id="booking_note" name="booking_note" rows="4" placeholder="如有特殊需求請在此註明"></textarea>
-                </div>
-                
-                <div class="form-group captcha-group">
-                    <label for="captcha_answer">驗證碼 <span class="required">*</span></label>
-                    <div class="captcha-question">
-                        <span class="captcha-text"><?php echo esc_html($captcha['question']); ?></span>
-                        <input type="number" id="captcha_answer" name="captcha_answer" required style="width: 100px; display: inline-block;">
-                    </div>
-                    <span class="error-message" id="error_captcha"></span>
-                </div>
-                
-                <button type="submit" class="submit-booking-btn">送出預約</button>
-            </form>
-            
-            <div id="booking-response" class="booking-response"></div>
-        </div>
-        <?php
-        return ob_get_clean();
+        $current_date->modify('+1 month');
     }
+    
+    ob_start();
+    ?>
+    <div class="booking-form-container">
+        <h3>線上預約</h3>
+        <form id="booking-form" class="booking-form" novalidate>
+            <div class="form-group">
+                <label for="booking_name">姓名 <span class="required">*</span></label>
+                <input type="text" id="booking_name" name="booking_name" required>
+                <span class="error-message" id="error_name"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="booking_email">Email <span class="required">*</span></label>
+                <input type="email" id="booking_email" name="booking_email" required>
+                <span class="error-message" id="error_email"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="booking_phone">電話 <span class="required">*</span></label>
+                <input type="tel" id="booking_phone" name="booking_phone" required>
+                <span class="error-message" id="error_phone"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="booking_year_month">選擇年月 <span class="required">*</span></label>
+                <select id="booking_year_month" name="booking_year_month" required>
+                    <option value="">請選擇年月</option>
+                    <?php foreach ($year_month_options as $option): ?>
+                        <option value="<?php echo esc_attr($option['value']); ?>" 
+                                data-year="<?php echo esc_attr($option['year']); ?>" 
+                                data-month="<?php echo esc_attr($option['month']); ?>">
+                            <?php echo esc_html($option['display']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <span class="error-message" id="error_year_month"></span>
+            </div>
+            
+            <div class="form-group" id="date-group" style="display: none;">
+                <label for="booking_date">預約日期 <span class="required">*</span></label>
+                <select id="booking_date" name="booking_date" required disabled>
+                    <option value="">請先選擇年月</option>
+                </select>
+                <span class="error-message" id="error_date"></span>
+            </div>
+            
+            <div class="form-group" id="duration-group" style="display: none;">
+                <label for="booking_duration">預約時長 <span class="required">*</span></label>
+                <select id="booking_duration" name="booking_duration" required disabled>
+                    <?php foreach ($settings['available_durations'] as $duration): ?>
+                        <option value="<?php echo esc_attr($duration); ?>" <?php selected($duration, $settings['default_duration']); ?>>
+                            <?php echo esc_html($duration); ?> 分鐘
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <span class="error-message" id="error_duration"></span>
+            </div>
+            
+            <div class="form-group" id="time-group" style="display: none;">
+                <label for="booking_time">預約時間 <span class="required">*</span></label>
+                <select id="booking_time" name="booking_time" required disabled>
+                    <option value="">請先選擇日期和時長</option>
+                </select>
+                <span class="error-message" id="error_time"></span>
+            </div>
+            
+            <div class="form-group">
+                <label for="booking_note">備註</label>
+                <textarea id="booking_note" name="booking_note" rows="4" placeholder="如有特殊需求請在此註明"></textarea>
+            </div>
+            
+            <div class="form-group captcha-group">
+                <label for="captcha_answer">驗證碼 <span class="required">*</span></label>
+                <div class="captcha-question">
+                    <span class="captcha-text"><?php echo esc_html($captcha['question']); ?></span>
+                    <input type="number" id="captcha_answer" name="captcha_answer" required style="width: 100px; display: inline-block;">
+                </div>
+                <span class="error-message" id="error_captcha"></span>
+            </div>
+            
+            <button type="submit" class="submit-booking-btn">送出預約</button>
+        </form>
+        
+        <div id="booking-response" class="booking-response"></div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
     
     public function check_time_availability() {
         check_ajax_referer('booking_nonce', 'nonce');
