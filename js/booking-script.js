@@ -2,8 +2,46 @@ jQuery(document).ready(function($) {
     var captchaVerified = false;
     
     // 設定日期選擇器的可用日期
-    var availableDays = bookingAjax.availableDays; // ['1', '2', '3', '4', '5'] 代表週一到週五
+    var availableDays = bookingAjax.availableDays; // ['1', '2', '3', '4', '5'] 
     var blockedDates = bookingAjax.blockedDates; // ['2026-02-15', '2026-02-20']
+    
+    console.log('可預約星期:', availableDays);
+    console.log('封鎖日期:', blockedDates);
+    
+    // 禁用封鎖日期和非營業日的功能
+    function disableBlockedDates() {
+        var dateInput = document.getElementById('booking_date');
+        
+        if (!dateInput) return;
+        
+        // 監聽日期選擇器打開事件
+        dateInput.addEventListener('input', function(e) {
+            var selectedDate = this.value;
+            
+            if (!selectedDate) return;
+            
+            // 檢查是否為封鎖日期
+            if (blockedDates.includes(selectedDate)) {
+                alert('此日期已被封鎖,無法預約\n請選擇其他日期');
+                this.value = '';
+                return;
+            }
+            
+            // 檢查是否為非營業日
+            var date = new Date(selectedDate);
+            var dayOfWeek = date.getDay();
+            var dayNumber = dayOfWeek === 0 ? '7' : dayOfWeek.toString();
+            
+            if (!availableDays.includes(dayNumber)) {
+                alert('此日期為非營業日,無法預約\n請選擇其他日期');
+                this.value = '';
+                return;
+            }
+        });
+    }
+    
+    // 初始化
+    disableBlockedDates();
     
     // 當選擇日期時檢查是否可預約
     $('#booking_date').on('change', function() {
@@ -19,8 +57,8 @@ jQuery(document).ready(function($) {
         
         // 檢查是否為可預約的星期
         var date = new Date(selectedDate);
-        var dayOfWeek = date.getDay(); // 0=週日, 1=週一, ..., 6=週六
-        var dayNumber = dayOfWeek === 0 ? '7' : dayOfWeek.toString(); // 轉換成 1-7
+        var dayOfWeek = date.getDay();
+        var dayNumber = dayOfWeek === 0 ? '7' : dayOfWeek.toString();
         
         if (!availableDays.includes(dayNumber)) {
             $('#error_date').text('此日期不開放預約(非營業日)').css('color', '#d63638').show();
