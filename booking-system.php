@@ -529,24 +529,6 @@ public function render_booking_form() {
     $settings = $this->get_booking_settings();
     $captcha = $this->generate_captcha();
     
-    $year_month_options = array();
-    $current_date = new DateTime();
-    
-    for ($i = 0; $i < 12; $i++) {
-        $year = $current_date->format('Y');
-        $month = $current_date->format('m');
-        $display = $current_date->format('Y年m月');
-        
-        $year_month_options[] = array(
-            'year' => $year,
-            'month' => $month,
-            'display' => $display,
-            'value' => $year . '-' . $month
-        );
-        
-        $current_date->modify('+1 month');
-    }
-    
     ob_start();
     ?>
     <div class="booking-form-container">
@@ -571,25 +553,10 @@ public function render_booking_form() {
             </div>
             
             <div class="form-group">
-                <label for="booking_year_month">選擇年月 <span class="required">*</span></label>
-                <select id="booking_year_month" name="booking_year_month" required>
-                    <option value="">請選擇年月</option>
-                    <?php foreach ($year_month_options as $option): ?>
-                        <option value="<?php echo esc_attr($option['value']); ?>" 
-                                data-year="<?php echo esc_attr($option['year']); ?>" 
-                                data-month="<?php echo esc_attr($option['month']); ?>">
-                            <?php echo esc_html($option['display']); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <span class="error-message" id="error_year_month"></span>
-            </div>
-            
-            <div class="form-group" id="date-group" style="display: none;">
                 <label for="booking_date">預約日期 <span class="required">*</span></label>
-                <select id="booking_date" name="booking_date" required disabled>
-                    <option value="">請先選擇年月</option>
-                </select>
+                <input type="date" id="booking_date" name="booking_date" required 
+                       min="<?php echo date('Y-m-d'); ?>" 
+                       max="<?php echo date('Y-m-d', strtotime('+6 months')); ?>">
                 <span class="error-message" id="error_date"></span>
             </div>
             
