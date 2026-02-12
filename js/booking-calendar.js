@@ -1,81 +1,11 @@
 jQuery(document).ready(function($) {
-    if (typeof FullCalendar !== 'undefined') {
-        var calendarEl = document.getElementById('booking-calendar');
-        
-        if (calendarEl) {
-            var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                locale: 'zh-tw',
-                headerToolbar: {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                },
-                buttonText: {
-                    today: '今天',
-                    month: '月',
-                    week: '週',
-                    day: '日'
-                },
-                events: bookingCalendarData.bookings,
-                eventClick: function(info) {
-                    info.jsEvent.preventDefault();
-                    var bookingId = info.event.extendedProps.bookingId;
-                    showBookingModal(bookingId);
-                },
-                eventTimeFormat: {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false
-                }
-            });
-            
-            calendar.render();
-        }
-    }
+    // 這是一個簡易的日曆顯示
+    // 您可以後續整合 FullCalendar 或其他日曆插件
     
-    function showBookingModal(bookingId) {
-        var overlay = $('#booking-modal-overlay');
-        var modalBody = $('#booking-modal-body');
-        
-        overlay.fadeIn(300);
-        modalBody.html('<p>載入中...</p>');
-        
-        $.ajax({
-            url: bookingCalendarData.ajaxurl,
-            type: 'POST',
-            data: {
-                action: 'get_booking_details',
-                nonce: bookingCalendarData.nonce,
-                booking_id: bookingId
-            },
-            success: function(response) {
-                if (response.success) {
-                    modalBody.html(response.data.html);
-                    $('#booking-edit-link').attr('href', response.data.edit_url);
-                } else {
-                    modalBody.html('<p class="error">' + response.data.message + '</p>');
-                }
-            },
-            error: function() {
-                modalBody.html('<p class="error">載入失敗，請重試</p>');
-            }
-        });
-    }
+    $('#booking-calendar').html('<div style="padding: 40px; text-align: center; background: #f5f5f5; border-radius: 8px;"><h3>日曆功能</h3><p>此功能可整合 FullCalendar 或其他日曆插件來顯示預約日曆視圖</p><p>目前可以在「所有預約」頁面查看和管理預約</p></div>');
     
+    // 關閉彈窗
     $('.booking-modal-close, #booking-modal-close-btn').on('click', function() {
-        $('#booking-modal-overlay').fadeOut(300);
-    });
-    
-    $('#booking-modal-overlay').on('click', function(e) {
-        if ($(e.target).hasClass('booking-modal-overlay')) {
-            $(this).fadeOut(300);
-        }
-    });
-    
-    $(document).on('keydown', function(e) {
-        if (e.key === 'Escape' && $('#booking-modal-overlay').is(':visible')) {
-            $('#booking-modal-overlay').fadeOut(300);
-        }
+        $('#booking-modal-overlay').hide();
     });
 });
