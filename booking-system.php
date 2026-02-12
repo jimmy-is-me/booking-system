@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: 預約系統 by WumetaX
- * Description: 完整的預約功能,包含前台預約、後台管理、時段衝突檢查、信件通知、驗證碼防護 | 由 WumetaX 專業開發
- * Version: 3.1
+ * Description: 完整的預約功能,包含前台預約、後台管理、時段衝突檢查、信件通知 | 由 WumetaX 專業開發
+ * Version: 3.2
  * Author: WumetaX
  * Author URI: https://wumetax.com
  * Text Domain: booking-system
@@ -34,8 +34,6 @@ class BookingSystem {
         add_action('wp_ajax_quick_update_status', array($this, 'quick_update_status'));
         add_action('wp_ajax_add_blocked_date', array($this, 'add_blocked_date'));
         add_action('wp_ajax_remove_blocked_date', array($this, 'remove_blocked_date'));
-        add_action('wp_ajax_verify_captcha', array($this, 'verify_captcha'));
-        add_action('wp_ajax_nopriv_verify_captcha', array($this, 'verify_captcha'));
         add_action('wp_ajax_delete_email_log', array($this, 'delete_email_log'));
         add_action('wp_ajax_get_email_log_detail', array($this, 'get_email_log_detail'));
         add_action('wp_ajax_send_test_email', array($this, 'send_test_email'));
@@ -156,7 +154,7 @@ class BookingSystem {
     public function admin_footer_text($text) {
         $screen = get_current_screen();
         if ($screen && (strpos($screen->id, 'booking') !== false)) {
-            $text = '<span style="color: #666;">預約系統 by <a href="https://wumetax.com" target="_blank" style="color: #0073aa; text-decoration: none; font-weight: 600;">WumetaX</a> | 版本 3.1</span>';
+            $text = '<span style="color: #666;">預約系統 by <a href="https://wumetax.com" target="_blank" style="color: #0073aa; text-decoration: none; font-weight: 600;">WumetaX</a> | 版本 3.2</span>';
         }
         return $text;
     }
@@ -267,8 +265,8 @@ class BookingSystem {
     }
     
     public function enqueue_frontend_scripts() {
-        wp_enqueue_style('booking-style', plugin_dir_url(__FILE__) . 'css/booking-style.css', array(), '3.1');
-        wp_enqueue_script('booking-script', plugin_dir_url(__FILE__) . 'js/booking-script.js', array('jquery'), '3.1', true);
+        wp_enqueue_style('booking-style', plugin_dir_url(__FILE__) . 'css/booking-style.css', array(), '3.2');
+        wp_enqueue_script('booking-script', plugin_dir_url(__FILE__) . 'js/booking-script.js', array('jquery'), '3.2', true);
         
         $settings = $this->get_booking_settings();
         
@@ -286,7 +284,6 @@ class BookingSystem {
                 'invalid_email' => '請輸入有效的 Email',
                 'invalid_phone' => '請輸入有效的電話號碼',
                 'select_time' => '請選擇預約時間',
-                'captcha_required' => '請完成驗證碼驗證',
             )
         ));
     }
@@ -362,56 +359,52 @@ class BookingSystem {
         return $count > 0;
     }
     
-public function get_available_dates() {
-    check_ajax_referer('booking_nonce', 'nonce');
-    
-    $year = isset($_POST['year']) ? intval($_POST['year']) : date('Y');
-    $month = isset($_POST['month']) ? intval($_POST['month']) : date('m');
-    
-    $settings = $this->get_booking_settings();
-    $available_days = $settings['available_days'];
-    
-    // 確保月份是兩位數格式
-    $month_str = str_pad($month, 2, '0', STR_PAD_LEFT);
-    $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
-    
-    $dates = array();
-    $today = date('Y-m-d');
-    
-    for ($day = 1; $day <= $days_in_month; $day++) {
-        $day_str = str_pad($day, 2, '0', STR_PAD_LEFT);
-        $dateStr = $year . '-' . $month_str . '-' . $day_str;
+    public function get_available_dates() {
+        check_ajax_referer('booking_nonce', 'nonce');
         
-        // 跳過過去的日期
-        if ($dateStr < $today) {
-            continue;
+        $year = isset($_POST['year']) ? intval($_POST['year']) : date('Y');
+        $month = isset($_POST['month']) ? intval($_POST['month']) : date('m');
+        
+        $settings = $this->get_booking_settings();
+        $available_days = $settings['available_days'];
+        
+        $month_str = str_pad($month, 2, '0', STR_PAD_LEFT);
+        $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        
+        $dates = array();
+        $today = date('Y-m-d');
+        
+        for ($day = 1; $day <= $days_in_month; $day++) {
+            $day_str = str_pad($day, 2, '0', STR_PAD_LEFT);
+            $dateStr = $year . '-' . $month_str . '-' . $day_str;
+            
+            if ($dateStr < $today) {
+                continue;
+            }
+            
+            $timestamp = strtotime($dateStr);
+            if ($timestamp === false) {
+                continue;
+            }
+            
+            $dayOfWeek = date('N', $timestamp);
+            
+            if (!in_array($dayOfWeek, $available_days)) {
+                continue;
+            }
+            
+            if ($this->is_date_blocked($dateStr)) {
+                continue;
+            }
+            
+            $dates[] = array(
+                'date' => $dateStr,
+                'display' => date('m/d', $timestamp) . ' (' . $this->get_weekday_name($dayOfWeek) . ')'
+            );
         }
         
-        $timestamp = strtotime($dateStr);
-        if ($timestamp === false) {
-            continue;
-        }
-        
-        $dayOfWeek = date('N', $timestamp);
-        
-        // 檢查是否為可預約星期
-        if (!in_array($dayOfWeek, $available_days)) {
-            continue;
-        }
-        
-        // 檢查是否為封鎖日期
-        if ($this->is_date_blocked($dateStr)) {
-            continue;
-        }
-        
-        $dates[] = array(
-            'date' => $dateStr,
-            'display' => date('m/d', $timestamp) . ' (' . $this->get_weekday_name($dayOfWeek) . ')'
-        );
+        wp_send_json_success(array('dates' => $dates));
     }
-    
-    wp_send_json_success(array('dates' => $dates));
-}
     
     private function get_weekday_name($day) {
         $names = array(
@@ -479,75 +472,73 @@ public function get_available_dates() {
         wp_send_json(array('times' => $available_times));
     }
     
-public function render_booking_form() {
-    $settings = $this->get_booking_settings();
-    
-    ob_start();
-    ?>
-    <div class="booking-form-container">
-        <h3>線上預約</h3>
-        <form id="booking-form" class="booking-form" novalidate>
-            <div class="form-group">
-                <label for="booking_name">姓名 <span class="required">*</span></label>
-                <input type="text" id="booking_name" name="booking_name" required>
-                <span class="error-message" id="error_name"></span>
-            </div>
-            
-            <div class="form-group">
-                <label for="booking_email">Email <span class="required">*</span></label>
-                <input type="email" id="booking_email" name="booking_email" required>
-                <span class="error-message" id="error_email"></span>
-            </div>
-            
-            <div class="form-group">
-                <label for="booking_phone">電話 <span class="required">*</span></label>
-                <input type="tel" id="booking_phone" name="booking_phone" required>
-                <span class="error-message" id="error_phone"></span>
-            </div>
-            
-            <div class="form-group">
-                <label for="booking_date">預約日期 <span class="required">*</span></label>
-                <input type="date" id="booking_date" name="booking_date" required 
-                       min="<?php echo date('Y-m-d'); ?>" 
-                       max="<?php echo date('Y-m-d', strtotime('+6 months')); ?>">
-                <span class="error-message" id="error_date"></span>
-            </div>
-            
-            <div class="form-group" id="duration-group" style="display: none;">
-                <label for="booking_duration">預約時長 <span class="required">*</span></label>
-                <select id="booking_duration" name="booking_duration" required disabled>
-                    <?php foreach ($settings['available_durations'] as $duration): ?>
-                        <option value="<?php echo esc_attr($duration); ?>" <?php selected($duration, $settings['default_duration']); ?>>
-                            <?php echo esc_html($duration); ?> 分鐘
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-                <span class="error-message" id="error_duration"></span>
-            </div>
-            
-            <div class="form-group" id="time-group" style="display: none;">
-                <label for="booking_time">預約時間 <span class="required">*</span></label>
-                <select id="booking_time" name="booking_time" required disabled>
-                    <option value="">請先選擇日期和時長</option>
-                </select>
-                <span class="error-message" id="error_time"></span>
-            </div>
-            
-            <div class="form-group">
-                <label for="booking_note">備註</label>
-                <textarea id="booking_note" name="booking_note" rows="4" placeholder="如有特殊需求請在此註明"></textarea>
-            </div>
-            
-            <button type="submit" class="submit-booking-btn">送出預約</button>
-        </form>
+    public function render_booking_form() {
+        $settings = $this->get_booking_settings();
         
-        <div id="booking-response" class="booking-response"></div>
-    </div>
-    <?php
-    return ob_get_clean();
-}
-
-
+        ob_start();
+        ?>
+        <div class="booking-form-container">
+            <h3>線上預約</h3>
+            <form id="booking-form" class="booking-form" novalidate>
+                <div class="form-group">
+                    <label for="booking_name">姓名 <span class="required">*</span></label>
+                    <input type="text" id="booking_name" name="booking_name" required>
+                    <span class="error-message" id="error_name"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="booking_email">Email <span class="required">*</span></label>
+                    <input type="email" id="booking_email" name="booking_email" required>
+                    <span class="error-message" id="error_email"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="booking_phone">電話 <span class="required">*</span></label>
+                    <input type="tel" id="booking_phone" name="booking_phone" required>
+                    <span class="error-message" id="error_phone"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="booking_date">預約日期 <span class="required">*</span></label>
+                    <input type="date" id="booking_date" name="booking_date" required 
+                           min="<?php echo date('Y-m-d'); ?>" 
+                           max="<?php echo date('Y-m-d', strtotime('+6 months')); ?>">
+                    <span class="error-message" id="error_date"></span>
+                </div>
+                
+                <div class="form-group" id="duration-group" style="display: none;">
+                    <label for="booking_duration">預約時長 <span class="required">*</span></label>
+                    <select id="booking_duration" name="booking_duration" required disabled>
+                        <?php foreach ($settings['available_durations'] as $duration): ?>
+                            <option value="<?php echo esc_attr($duration); ?>" <?php selected($duration, $settings['default_duration']); ?>>
+                                <?php echo esc_html($duration); ?> 分鐘
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <span class="error-message" id="error_duration"></span>
+                </div>
+                
+                <div class="form-group" id="time-group" style="display: none;">
+                    <label for="booking_time">預約時間 <span class="required">*</span></label>
+                    <select id="booking_time" name="booking_time" required disabled>
+                        <option value="">請先選擇日期和時長</option>
+                    </select>
+                    <span class="error-message" id="error_time"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="booking_note">備註</label>
+                    <textarea id="booking_note" name="booking_note" rows="4" placeholder="如有特殊需求請在此註明"></textarea>
+                </div>
+                
+                <button type="submit" class="submit-booking-btn">送出預約</button>
+            </form>
+            
+            <div id="booking-response" class="booking-response"></div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
     
     public function check_time_availability() {
         check_ajax_referer('booking_nonce', 'nonce');
@@ -717,6 +708,8 @@ public function render_booking_form() {
         }
     }
     
+    public function handle_booking_submission() {
+        check_ajax_referer('booking_nonce', 'nonce');
         
         $name = sanitize_text_field($_POST['name']);
         $email = sanitize_email($_POST['email']);
@@ -784,9 +777,6 @@ public function render_booking_form() {
             update_post_meta($booking_id, '_booking_note', $note);
             
             $this->send_booking_email($booking_id, $name, $email, $phone, $date, $time, $duration, $note);
-            
-            unset($_SESSION['booking_captcha_verified']);
-            unset($_SESSION['booking_captcha_answer']);
             
             wp_send_json_success(array('message' => '預約成功！我們已寄送確認信件至您的信箱。'));
         } else {
@@ -1750,18 +1740,18 @@ public function render_booking_form() {
             return;
         }
         
-        wp_enqueue_style('booking-admin-style', plugin_dir_url(__FILE__) . 'css/booking-admin.css', array(), '3.1');
+        wp_enqueue_style('booking-admin-style', plugin_dir_url(__FILE__) . 'css/booking-admin.css', array(), '3.2');
         
         if (isset($_GET['page'])) {
             if ($_GET['page'] === 'booking-settings') {
-                wp_enqueue_script('booking-settings', plugin_dir_url(__FILE__) . 'js/booking-settings.js', array('jquery'), '3.1', true);
+                wp_enqueue_script('booking-settings', plugin_dir_url(__FILE__) . 'js/booking-settings.js', array('jquery'), '3.2', true);
             } elseif ($_GET['page'] === 'booking-calendar') {
-                wp_enqueue_script('booking-calendar', plugin_dir_url(__FILE__) . 'js/booking-calendar.js', array('jquery'), '3.1', true);
+                wp_enqueue_script('booking-calendar', plugin_dir_url(__FILE__) . 'js/booking-calendar.js', array('jquery'), '3.2', true);
             }
         }
         
         if ($hook === 'edit.php' && isset($_GET['post_type']) && $_GET['post_type'] === 'booking') {
-            wp_enqueue_script('booking-admin-list', plugin_dir_url(__FILE__) . 'js/booking-admin-list.js', array('jquery'), '3.1', true);
+            wp_enqueue_script('booking-admin-list', plugin_dir_url(__FILE__) . 'js/booking-admin-list.js', array('jquery'), '3.2', true);
         }
         
         wp_localize_script('booking-settings', 'bookingAdminData', array(
