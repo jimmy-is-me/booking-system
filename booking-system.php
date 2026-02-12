@@ -362,11 +362,57 @@ class BookingSystem {
         return $count > 0;
     }
     
-    public function get_available_dates() {
-        check_ajax_referer('booking_nonce', 'nonce');
+public function get_available_dates() {
+    check_ajax_referer('booking_nonce', 'nonce');
+    
+    $year = isset($_POST['year']) ? intval($_POST['year']) : date('Y');
+    $month = isset($_POST['month']) ? intval($_POST['month']) : date('m');
+    
+    $settings = $this->get_booking_settings();
+    $available_days = $settings['available_days'];
+    
+    // 確保月份是兩位數格式
+    $month_str = str_pad($month, 2, '0', STR_PAD_LEFT);
+    $days_in_month = cal_days_in_month(CAL_GREGORIAN, $month, $year);
+    
+    $dates = array();
+    $today = date('Y-m-d');
+    
+    for ($day = 1; $day <= $days_in_month; $day++) {
+        $day_str = str_pad($day, 2, '0', STR_PAD_LEFT);
+        $dateStr = $year . '-' . $month_str . '-' . $day_str;
         
-        $year = isset($_POST['year']) ? intval($_POST['year']) : date('Y');
-        $month = isset($_POST['month']) ? intval($_POST['month']) : date('m');
+        // 跳過過去的日期
+        if ($dateStr < $today) {
+            continue;
+        }
+        
+        $timestamp = strtotime($dateStr);
+        if ($timestamp === false) {
+            continue;
+        }
+        
+        $dayOfWeek = date('N', $timestamp);
+        
+        // 檢查是否為可預約星期
+        if (!in_array($dayOfWeek, $available_days)) {
+            continue;
+        }
+        
+        // 檢查是否為封鎖日期
+        if ($this->is_date_blocked($dateStr)) {
+            continue;
+        }
+        
+        $dates[] = array(
+            'date' => $dateStr,
+            'display' => date('m/d', $timestamp) . ' (' . $this->get_weekday_name($dayOfWeek) . ')'
+        );
+    }
+    
+    wp_send_json_success(array('dates' => $dates));
+}
+
         
         $settings = $this->get_booking_settings();
         $available_days = $settings['available_days'];
