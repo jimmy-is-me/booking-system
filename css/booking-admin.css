@@ -1,154 +1,280 @@
-/* 彈出視窗遮罩 */
+/* 後台通用樣式 */
 .booking-modal-overlay {
     display: none;
     position: fixed;
-    z-index: 100000;
-    left: 0;
     top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    overflow: hidden;
-    background-color: rgba(0, 0, 0, 0.6);
-    animation: fadeIn 0.3s;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 999999;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-/* 彈出面板 */
 .booking-modal-panel {
     position: absolute;
-    right: 0;
-    top: 0;
-    width: 500px;
-    max-width: 90%;
-    height: 100%;
-    background-color: #ffffff;
-    box-shadow: -2px 0 20px rgba(0, 0, 0, 0.3);
-    display: flex;
-    flex-direction: column;
-    animation: slideIn 0.3s;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
 }
 
-@keyframes slideIn {
-    from {
-        transform: translateX(100%);
-    }
-    to {
-        transform: translateX(0);
-    }
-}
-
-/* 面板標題 */
 .booking-modal-header {
-    padding: 20px 25px;
-    background: #0073aa;
-    color: white;
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-shrink: 0;
 }
 
 .booking-modal-header h2 {
     margin: 0;
     font-size: 20px;
-    font-weight: 600;
-    color: white;
 }
 
 .booking-modal-close {
-    color: white;
-    font-size: 32px;
-    font-weight: normal;
-    line-height: 1;
+    font-size: 28px;
     cursor: pointer;
-    background: none;
-    border: none;
-    padding: 0;
-    margin: 0;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.2s;
+    color: #666;
+    line-height: 1;
 }
 
 .booking-modal-close:hover {
-    opacity: 0.7;
+    color: #000;
 }
 
-/* 面板內容 */
 .booking-modal-body {
-    padding: 25px;
-    overflow-y: auto;
-    flex: 1;
+    padding: 20px;
 }
 
-.booking-details-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.booking-details-table th,
-.booking-details-table td {
-    padding: 12px 8px;
-    text-align: left;
-    border-bottom: 1px solid #e5e5e5;
-}
-
-.booking-details-table th {
-    font-weight: 600;
-    width: 35%;
-    color: #555;
-}
-
-.booking-details-table td {
-    color: #333;
-}
-
-.booking-details-table tr:last-child th,
-.booking-details-table tr:last-child td {
-    border-bottom: none;
-}
-
-/* 面板底部 */
 .booking-modal-footer {
-    padding: 15px 25px;
-    background: #f5f5f5;
+    padding: 15px 20px;
     border-top: 1px solid #ddd;
     text-align: right;
-    flex-shrink: 0;
 }
 
 .booking-modal-footer .button {
     margin-left: 10px;
 }
 
+/* 狀態下拉選單樣式 */
+.booking-quick-status {
+    transition: all 0.3s ease;
+}
+
+.booking-quick-status:hover {
+    opacity: 0.8;
+}
+
+/* 標籤頁樣式 */
+.nav-tab-wrapper {
+    border-bottom: 1px solid #ccc;
+    margin: 20px 0;
+}
+
+.nav-tab {
+    float: left;
+    border: 1px solid #ccc;
+    border-bottom: none;
+    margin-left: 0.5em;
+    padding: 5px 14px;
+    font-size: 14px;
+    line-height: 24px;
+    background: #f1f1f1;
+    color: #555;
+    text-decoration: none;
+}
+
+.nav-tab:hover {
+    background-color: #fff;
+    color: #464646;
+}
+
+.nav-tab-active {
+    background-color: #fff;
+    color: #000;
+    border-bottom-color: #fff;
+}
+
+.tab-content {
+    clear: both;
+    padding-top: 20px;
+}
+
+/* 表格樣式增強 */
+.wp-list-table th,
+.wp-list-table td {
+    vertical-align: middle;
+}
+
+.wp-list-table .button-small {
+    padding: 2px 8px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* 通知訊息樣式 */
+.notice {
+    border-left: 4px solid;
+    padding: 12px;
+    margin: 15px 0;
+    background: #fff;
+}
+
+.notice-success {
+    border-left-color: #46b450;
+}
+
+.notice-error {
+    border-left-color: #dc3232;
+}
+
+.notice-warning {
+    border-left-color: #ffb900;
+}
+
+.notice-info {
+    border-left-color: #00a0d2;
+}
+
+/* 表單樣式增強 */
+.form-table th {
+    width: 200px;
+    font-weight: 600;
+}
+
+.form-table input[type="text"],
+.form-table input[type="email"],
+.form-table input[type="tel"],
+.form-table input[type="date"],
+.form-table input[type="time"],
+.form-table select,
+.form-table textarea {
+    font-size: 14px;
+}
+
+.form-table .description {
+    color: #666;
+    font-style: italic;
+    margin-top: 5px;
+}
+
 /* 日曆樣式 */
 #booking-calendar {
-    margin-top: 20px;
     background: white;
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.fc-event {
-    cursor: pointer;
-}
-
-.fc-event:hover {
-    opacity: 0.85;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 /* 響應式設計 */
-@media (max-width: 768px) {
+@media screen and (max-width: 782px) {
     .booking-modal-panel {
-        width: 100%;
-        max-width: 100%;
+        width: 95%;
+        max-height: 90vh;
     }
+    
+    .form-table th,
+    .form-table td {
+        display: block;
+        width: 100%;
+    }
+    
+    .form-table th {
+        padding-bottom: 5px;
+    }
+    
+    .form-table td {
+        padding-top: 5px;
+    }
+}
+
+/* 載入動畫 */
+.booking-loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0, 115, 170, 0.3);
+    border-radius: 50%;
+    border-top-color: #0073aa;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 空狀態樣式 */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.empty-state-text {
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+/* 成功/錯誤訊息樣式 */
+.success-message {
+    padding: 12px 15px;
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    border-radius: 4px;
+    margin: 15px 0;
+}
+
+.error-message {
+    padding: 12px 15px;
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    border-radius: 4px;
+    margin: 15px 0;
+}
+
+/* 代碼區塊樣式 */
+code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #d63638;
+}
+
+/* 按鈕樣式增強 */
+.button-primary {
+    background: #0073aa;
+    border-color: #0073aa;
+    color: #fff;
+    text-shadow: none;
+}
+
+.button-primary:hover {
+    background: #005177;
+    border-color: #005177;
+}
+
+.button-secondary {
+    color: #555;
+    border-color: #ccc;
+}
+
+.button-secondary:hover {
+    color: #000;
+    border-color: #999;
 }
