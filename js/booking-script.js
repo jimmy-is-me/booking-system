@@ -31,22 +31,26 @@ jQuery(document).ready(function($) {
                 month: month
             },
             success: function(response) {
-                var dateSelect = $('#booking_date');
-                dateSelect.html('<option value="">請選擇預約日期</option>');
-                
-                if (response.dates && response.dates.length > 0) {
-                    $.each(response.dates, function(index, dateObj) {
-                        dateSelect.append('<option value="' + dateObj.date + '">' + dateObj.display + '</option>');
-                    });
-                    dateSelect.prop('disabled', false);
-                    $('#date-group').slideDown();
-                    $('#duration-group').slideDown();
-                    $('#booking_duration').prop('disabled', false);
-                } else {
-                    dateSelect.html('<option value="">此月份無可預約日期</option>');
-                    $('#date-group').slideDown();
-                }
-            },
+    var dateSelect = $('#booking_date');
+    dateSelect.html('<option value="">請選擇預約日期</option>');
+    
+    // 修改這裡:支援兩種回應格式
+    var dates = response.data && response.data.dates ? response.data.dates : response.dates;
+    
+    if (dates && dates.length > 0) {
+        $.each(dates, function(index, dateObj) {
+            dateSelect.append('<option value="' + dateObj.date + '">' + dateObj.display + '</option>');
+        });
+        dateSelect.prop('disabled', false);
+        $('#date-group').slideDown();
+        $('#duration-group').slideDown();
+        $('#booking_duration').prop('disabled', false);
+    } else {
+        dateSelect.html('<option value="">此月份無可預約日期</option>');
+        $('#date-group').slideDown();
+    }
+}
+
             error: function() {
                 $('#booking_date').html('<option value="">載入失敗,請重新整理</option>');
                 $('#date-group').slideDown();
