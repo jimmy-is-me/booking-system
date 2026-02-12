@@ -1141,130 +1141,131 @@ class BookingSystem {
         );
     }
     
-    public function render_email_templates_page() {
-        if (isset($_POST['save_email_templates'])) {
-            check_admin_referer('email_templates_action', 'email_templates_nonce');
-            
-            $templates = array(
-                'customer_subject' => sanitize_text_field($_POST['customer_subject']),
-                'customer_body' => sanitize_textarea_field($_POST['customer_body']),
-                'admin_subject' => sanitize_text_field($_POST['admin_subject']),
-                'admin_body' => sanitize_textarea_field($_POST['admin_body']),
-            );
-            
-            update_option('booking_email_templates', $templates);
-            echo '<div class="notice notice-success is-dismissible"><p><strong>信件模板已儲存！</strong></p></div>';
-        }
+public function render_email_templates_page() {
+    if (isset($_POST['save_email_templates'])) {
+        check_admin_referer('email_templates_action', 'email_templates_nonce');
         
-        if (isset($_POST['reset_email_templates'])) {
-            check_admin_referer('email_templates_action', 'email_templates_nonce');
-            
-            delete_option('booking_email_templates');
-            $this->set_default_email_templates();
-            echo '<div class="notice notice-success is-dismissible"><p><strong>信件模板已重置為預設內容！</strong></p></div>';
-        }
+        $templates = array(
+            'customer_subject' => sanitize_text_field($_POST['customer_subject']),
+            'customer_body' => sanitize_textarea_field($_POST['customer_body']),
+            'admin_subject' => sanitize_text_field($_POST['admin_subject']),
+            'admin_body' => sanitize_textarea_field($_POST['admin_body']),
+        );
         
+        update_option('booking_email_templates', $templates);
+        echo '<div class="notice notice-success is-dismissible"><p><strong>信件模板已儲存！</strong></p></div>';
+    }
+    
+    if (isset($_POST['reset_email_templates'])) {
+        check_admin_referer('email_templates_action', 'email_templates_nonce');
+        
+        delete_option('booking_email_templates');
+        $this->set_default_email_templates();
+        echo '<div class="notice notice-success is-dismissible"><p><strong>信件模板已重置為預設內容！</strong></p></div>';
+    }
+    
+    $templates = get_option('booking_email_templates');
+    
+    // 如果沒有模板,設定預設模板
+    if (!$templates) {
+        $this->set_default_email_templates();
         $templates = get_option('booking_email_templates');
+    }
+    ?>
+    <div class="wrap">
+        <h1>信件模板設定</h1>
+        <p class="description">設定預約成功後寄送給客戶和管理員的通知信件內容</p>
         
-        // 如果沒有模板,設定預設模板
-        if (!$templates) {
-            $this->set_default_email_templates();
-            $templates = get_option('booking_email_templates');
-        }
-        ?>
-        <div class="wrap">
-            <h1>信件模板設定</h1>
-            <p class="description">設定預約成功後寄送給客戶和管理員的通知信件內容</p>
-            
-            <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
-                <h3 style="margin-top: 0;">📧 可用變數說明</h3>
-                <p style="margin-bottom: 10px;">您可以在信件主旨和內容中使用以下變數，系統會自動替換為實際內容：</p>
-                <ul style="list-style: disc; margin-left: 20px; columns: 2;">
-                    <li><code>{site_name}</code> - 網站名稱</li>
-                    <li><code>{site_url}</code> - 網站網址</li>
-                    <li><code>{customer_name}</code> - 客戶姓名</li>
-                    <li><code>{customer_email}</code> - 客戶 Email</li>
-                    <li><code>{customer_phone}</code> - 客戶電話</li>
-                    <li><code>{booking_date}</code> - 預約日期</li>
-                    <li><code>{booking_time}</code> - 預約時間</li>
-                    <li><code>{booking_duration}</code> - 預約時長</li>
-                    <li><code>{booking_note}</code> - 預約備註</li>
-                    <li><code>{booking_id}</code> - 預約編號</li>
-                    <li><code>{created_time}</code> - 建立時間</li>
-                    <li><code>{admin_url}</code> - 後台編輯連結</li>
-                </ul>
-            </div>
-            
-            <form method="post" action="">
-                <?php wp_nonce_field('email_templates_action', 'email_templates_nonce'); ?>
-                
-                <div style="background: white; padding: 20px; margin: 20px 0; border: 1px solid #ccc; border-radius: 4px;">
-                    <h2>📨 客戶通知信件</h2>
-                    <p class="description">預約成功後寄送給填寫者的確認信件</p>
-                    
-                    <table class="form-table">
-                        <tr>
-                            <th><label for="customer_subject">信件主旨</label></th>
-                            <td>
-                                <input type="text" id="customer_subject" name="customer_subject" value="<?php echo esc_attr($templates['customer_subject']); ?>" class="large-text">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th><label for="customer_body">信件內容</label></th>
-                            <td>
-                                <textarea id="customer_body" name="customer_body" rows="12" class="large-text" style="font-family: monospace;"><?php echo esc_textarea($templates['customer_body']); ?></textarea>
-                            </td>
-                        </tr>
-                    </table>
-                    
-                    <div style="margin-top: 15px; padding: 15px; background: #f0f8ff; border: 1px solid #b3d9ff; border-radius: 4px;">
-                        <h4 style="margin-top: 0;">🧪 測試客戶信件</h4>
-                        <p style="margin-bottom: 10px;">輸入Email地址測試信件發送:</p>
-                        <input type="email" id="customer_test_email" placeholder="test@example.com" style="width: 300px; padding: 8px;">
-                        <button type="button" class="button" onclick="sendTestEmail('customer')">發送測試信件</button>
-                        <span id="customer_test_result" style="margin-left: 10px;"></span>
-                    </div>
-                </div>
-                
-                <div style="background: white; padding: 20px; margin: 20px 0; border: 1px solid #ccc; border-radius: 4px;">
-                    <h2>👨‍💼 管理員通知信件</h2>
-                    <p class="description">有新預約時寄送給管理員的通知信件</p>
-                    
-                    <table class="form-table">
-                        <tr>
-                            <th><label for="admin_subject">信件主旨</label></th>
-                            <td>
-                                <input type="text" id="admin_subject" name="admin_subject" value="<?php echo esc_attr($templates['admin_subject']); ?>" class="large-text">
-                            </td>
-                        </tr>
-                        <tr>
-                            <th><label for="admin_body">信件內容</label></th>
-                            <td>
-                                <textarea id="admin_body" name="admin_body" rows="12" class="large-text" style="font-family: monospace;"><?php echo esc_textarea($templates['admin_body']); ?></textarea>
-                            </td>
-                        </tr>
-                    </table>
-                    
-                    <div style="margin-top: 15px; padding: 15px; background: #f0f8ff; border: 1px solid #b3d9ff; border-radius: 4px;">
-                        <h4 style="margin-top: 0;">🧪 測試管理員信件</h4>
-                        <p style="margin-bottom: 10px;">輸入Email地址測試信件發送:</p>
-                        <input type="email" id="admin_test_email" placeholder="admin@example.com" value="<?php echo esc_attr(get_option('admin_email')); ?>" style="width: 300px; padding: 8px;">
-                        <button type="button" class="button" onclick="sendTestEmail('admin')">發送測試信件</button>
-                        <span id="admin_test_result" style="margin-left: 10px;"></span>
-                    </div>
-                </div>
-                
-                <p class="submit">
-                    <?php submit_button('儲存信件模板', 'primary large', 'save_email_templates', false); ?>
-                    <?php submit_button('重置為預設模板', 'secondary', 'reset_email_templates', false, array('onclick' => 'return confirm("確定要重置為預設模板嗎？目前的自訂內容將會遺失！");')); ?>
-                </p>
-            </form>
+        <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+            <h3 style="margin-top: 0;">📧 可用變數說明</h3>
+            <p style="margin-bottom: 10px;">您可以在信件主旨和內容中使用以下變數，系統會自動替換為實際內容：</p>
+            <ul style="list-style: disc; margin-left: 20px; columns: 2;">
+                <li><code>{site_name}</code> - 網站名稱</li>
+                <li><code>{site_url}</code> - 網站網址</li>
+                <li><code>{customer_name}</code> - 客戶姓名</li>
+                <li><code>{customer_email}</code> - 客戶 Email</li>
+                <li><code>{customer_phone}</code> - 客戶電話</li>
+                <li><code>{booking_date}</code> - 預約日期</li>
+                <li><code>{booking_time}</code> - 預約時間</li>
+                <li><code>{booking_duration}</code> - 預約時長</li>
+                <li><code>{booking_note}</code> - 預約備註</li>
+                <li><code>{booking_id}</code> - 預約編號</li>
+                <li><code>{created_time}</code> - 建立時間</li>
+                <li><code>{admin_url}</code> - 後台編輯連結</li>
+            </ul>
         </div>
         
-        <script>
+        <form method="post" action="">
+            <?php wp_nonce_field('email_templates_action', 'email_templates_nonce'); ?>
+            
+            <div style="background: white; padding: 20px; margin: 20px 0; border: 1px solid #ccc; border-radius: 4px;">
+                <h2>📨 客戶通知信件</h2>
+                <p class="description">預約成功後寄送給填寫者的確認信件</p>
+                
+                <table class="form-table">
+                    <tr>
+                        <th><label for="customer_subject">信件主旨</label></th>
+                        <td>
+                            <input type="text" id="customer_subject" name="customer_subject" value="<?php echo esc_attr($templates['customer_subject']); ?>" class="large-text">
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="customer_body">信件內容</label></th>
+                        <td>
+                            <textarea id="customer_body" name="customer_body" rows="12" class="large-text" style="font-family: monospace;"><?php echo esc_textarea($templates['customer_body']); ?></textarea>
+                        </td>
+                    </tr>
+                </table>
+                
+                <div style="margin-top: 15px; padding: 15px; background: #f0f8ff; border: 1px solid #b3d9ff; border-radius: 4px;">
+                    <h4 style="margin-top: 0;">🧪 測試客戶信件</h4>
+                    <p style="margin-bottom: 10px;">輸入Email地址測試信件發送:</p>
+                    <input type="email" id="customer_test_email" placeholder="test@example.com" style="width: 300px; padding: 8px;">
+                    <button type="button" class="button" id="send_customer_test">發送測試信件</button>
+                    <span id="customer_test_result" style="margin-left: 10px;"></span>
+                </div>
+            </div>
+            
+            <div style="background: white; padding: 20px; margin: 20px 0; border: 1px solid #ccc; border-radius: 4px;">
+                <h2>👨‍💼 管理員通知信件</h2>
+                <p class="description">有新預約時寄送給管理員的通知信件</p>
+                
+                <table class="form-table">
+                    <tr>
+                        <th><label for="admin_subject">信件主旨</label></th>
+                        <td>
+                            <input type="text" id="admin_subject" name="admin_subject" value="<?php echo esc_attr($templates['admin_subject']); ?>" class="large-text">
+                        </td>
+                    </tr>
+                    <tr>
+                        <th><label for="admin_body">信件內容</label></th>
+                        <td>
+                            <textarea id="admin_body" name="admin_body" rows="12" class="large-text" style="font-family: monospace;"><?php echo esc_textarea($templates['admin_body']); ?></textarea>
+                        </td>
+                    </tr>
+                </table>
+                
+                <div style="margin-top: 15px; padding: 15px; background: #f0f8ff; border: 1px solid #b3d9ff; border-radius: 4px;">
+                    <h4 style="margin-top: 0;">🧪 測試管理員信件</h4>
+                    <p style="margin-bottom: 10px;">輸入Email地址測試信件發送:</p>
+                    <input type="email" id="admin_test_email" placeholder="admin@example.com" value="<?php echo esc_attr(get_option('admin_email')); ?>" style="width: 300px; padding: 8px;">
+                    <button type="button" class="button" id="send_admin_test">發送測試信件</button>
+                    <span id="admin_test_result" style="margin-left: 10px;"></span>
+                </div>
+            </div>
+            
+            <p class="submit">
+                <?php submit_button('儲存信件模板', 'primary large', 'save_email_templates', false); ?>
+                <?php submit_button('重置為預設模板', 'secondary', 'reset_email_templates', false, array('onclick' => 'return confirm("確定要重置為預設模板嗎？目前的自訂內容將會遺失！");')); ?>
+            </p>
+        </form>
+    </div>
+    
+    <script type="text/javascript">
+    jQuery(document).ready(function($) {
         function sendTestEmail(type) {
-            var emailInput = type === 'customer' ? jQuery('#customer_test_email') : jQuery('#admin_test_email');
-            var resultSpan = type === 'customer' ? jQuery('#customer_test_result') : jQuery('#admin_test_result');
+            var emailInput = type === 'customer' ? $('#customer_test_email') : $('#admin_test_email');
+            var resultSpan = type === 'customer' ? $('#customer_test_result') : $('#admin_test_result');
             var testEmail = emailInput.val();
             
             if (!testEmail) {
@@ -1274,7 +1275,7 @@ class BookingSystem {
             
             resultSpan.html('<span style="color: #999;">發送中...</span>');
             
-            jQuery.ajax({
+            $.ajax({
                 url: ajaxurl,
                 type: 'POST',
                 data: {
@@ -1292,7 +1293,7 @@ class BookingSystem {
                     
                     setTimeout(function() {
                         resultSpan.fadeOut(300, function() {
-                            jQuery(this).html('').show();
+                            $(this).html('').show();
                         });
                     }, 5000);
                 },
@@ -1301,9 +1302,19 @@ class BookingSystem {
                 }
             });
         }
-        </script>
-        <?php
-    }
+        
+        $('#send_customer_test').on('click', function() {
+            sendTestEmail('customer');
+        });
+        
+        $('#send_admin_test').on('click', function() {
+            sendTestEmail('admin');
+        });
+    });
+    </script>
+    <?php
+}
+
     
     // 繼續其他方法...
     public function render_email_logs_page() {
