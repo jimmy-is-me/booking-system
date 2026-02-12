@@ -570,28 +570,37 @@ public function get_available_dates() {
                     <span class="error-message" id="error_phone"></span>
                 </div>
                 
-                <div class="form-group">
-                    <label for="booking_year_month">選擇年月 <span class="required">*</span></label>
-                    <select id="booking_year_month" name="booking_year_month" required>
-                        <option value="">請選擇年月</option>
-                        <?php foreach ($year_month_options as $option): ?>
-                            <option value="<?php echo esc_attr($option['value']); ?>" 
-                                    data-year="<?php echo esc_attr($option['year']); ?>" 
-                                    data-month="<?php echo esc_attr($option['month']); ?>">
-                                <?php echo esc_html($option['display']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <span class="error-message" id="error_year_month"></span>
-                </div>
-                
-                <div class="form-group" id="date-group" style="display: none;">
-                    <label for="booking_date">預約日期 <span class="required">*</span></label>
-                    <select id="booking_date" name="booking_date" required disabled>
-                        <option value="">請先選擇年月</option>
-                    </select>
-                    <span class="error-message" id="error_date"></span>
-                </div>
+<div class="form-group">
+    <label for="booking_year">選擇年份 <span class="required">*</span></label>
+    <select id="booking_year" name="booking_year" required>
+        <option value="">請選擇年份</option>
+        <?php 
+        $current_year = date('Y');
+        for ($y = 0; $y < 2; $y++): 
+            $year = $current_year + $y;
+        ?>
+            <option value="<?php echo esc_attr($year); ?>"><?php echo esc_html($year); ?>年</option>
+        <?php endfor; ?>
+    </select>
+    <span class="error-message" id="error_year"></span>
+</div>
+
+<div class="form-group" id="month-group" style="display: none;">
+    <label for="booking_month">選擇月份 <span class="required">*</span></label>
+    <select id="booking_month" name="booking_month" required disabled>
+        <option value="">請先選擇年份</option>
+    </select>
+    <span class="error-message" id="error_month"></span>
+</div>
+
+<div class="form-group" id="date-group" style="display: none;">
+    <label for="booking_date">預約日期 <span class="required">*</span></label>
+    <select id="booking_date" name="booking_date" required disabled>
+        <option value="">請先選擇月份</option>
+    </select>
+    <span class="error-message" id="error_date"></span>
+</div>
+
                 
                 <div class="form-group" id="duration-group" style="display: none;">
                     <label for="booking_duration">預約時長 <span class="required">*</span></label>
