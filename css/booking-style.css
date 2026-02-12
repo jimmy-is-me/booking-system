@@ -17,7 +17,7 @@
 
 .booking-form .form-group {
     margin-bottom: 20px;
-    transition: opacity 0.3s, height 0.3s;
+    transition: all 0.3s ease;
 }
 
 .booking-form label {
