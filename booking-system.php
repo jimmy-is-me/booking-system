@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: 預約系統 by WumetaX
- * Description: 完整的預約功能,包含前台預約、後台管理、時段衝突檢查 | 由 WumetaX 專業開發
- * Version: 2.7
+ * Description: 完整的預約功能,包含前台預約、後台管理、時段衝突檢查、信件通知、驗證碼防護 | 由 WumetaX 專業開發
+ * Version: 3.0
  * Author: WumetaX
  * Author URI: https://wumetax.com
  * Text Domain: booking-system
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) exit;
 
 class BookingSystem {
     
-    private $table_version = '1.1';
+    private $table_version = '1.2';
     
     public function __construct() {
         add_action('plugins_loaded', array($this, 'check_and_update_table'));
@@ -28,10 +28,16 @@ class BookingSystem {
         add_action('wp_ajax_nopriv_check_availability', array($this, 'check_time_availability'));
         add_action('wp_ajax_get_available_times', array($this, 'get_available_times'));
         add_action('wp_ajax_nopriv_get_available_times', array($this, 'get_available_times'));
+        add_action('wp_ajax_get_available_dates', array($this, 'get_available_dates'));
+        add_action('wp_ajax_nopriv_get_available_dates', array($this, 'get_available_dates'));
         add_action('wp_ajax_get_booking_details', array($this, 'get_booking_details'));
         add_action('wp_ajax_quick_update_status', array($this, 'quick_update_status'));
         add_action('wp_ajax_add_blocked_date', array($this, 'add_blocked_date'));
         add_action('wp_ajax_remove_blocked_date', array($this, 'remove_blocked_date'));
+        add_action('wp_ajax_verify_captcha', array($this, 'verify_captcha'));
+        add_action('wp_ajax_nopriv_verify_captcha', array($this, 'verify_captcha'));
+        add_action('wp_ajax_delete_email_log', array($this, 'delete_email_log'));
+        add_action('wp_ajax_resend_email', array($this, 'resend_email'));
         
         add_action('wp_enqueue_scripts', array($this, 'enqueue_frontend_scripts'));
         
@@ -54,7 +60,24 @@ class BookingSystem {
     
     public function plugin_activation() {
         $this->create_blocked_dates_table();
+        $this->create_email_logs_table();
         update_option('booking_blocked_dates_table_version', $this->table_version);
+        
+        // 設定預設信件模板
+        $this->set_default_email_templates();
+    }
+    
+    private function set_default_email_templates() {
+        $default_templates = array(
+            'customer_subject' => '預約確認通知 - {site_name}',
+            'customer_body' => "親愛的 {customer_name}，您好！\n\n感謝您的預約，以下是您的預約資訊：\n\n預約日期：{booking_date}\n預約時間：{booking_time}\n預約時長：{booking_duration} 分鐘\n聯絡電話：{customer_phone}\n備註說明：{booking_note}\n\n我們已收到您的預約申請，將盡快與您確認。\n如有任何問題，歡迎隨時與我們聯繫。\n\n此信件為系統自動發送，請勿直接回覆。\n\n{site_name}\n{site_url}",
+            'admin_subject' => '新預約通知 - {customer_name}',
+            'admin_body' => "收到新的預約申請\n\n客戶資訊：\n姓名：{customer_name}\nEmail：{customer_email}\n電話：{customer_phone}\n\n預約資訊：\n日期：{booking_date}\n時間：{booking_time}\n時長：{booking_duration} 分鐘\n備註：{booking_note}\n\n預約編號：#{booking_id}\n建立時間：{created_time}\n\n請至後台查看詳細資訊：\n{admin_url}"
+        );
+        
+        if (!get_option('booking_email_templates')) {
+            update_option('booking_email_templates', $default_templates);
+        }
     }
     
     public function check_and_update_table() {
@@ -62,6 +85,7 @@ class BookingSystem {
         
         if (version_compare($current_version, $this->table_version, '<')) {
             $this->create_blocked_dates_table();
+            $this->create_email_logs_table();
             update_option('booking_blocked_dates_table_version', $this->table_version);
         }
     }
@@ -100,10 +124,36 @@ class BookingSystem {
         dbDelta($sql);
     }
     
+    public function create_email_logs_table() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'booking_email_logs';
+        $charset_collate = $wpdb->get_charset_collate();
+        
+        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+            id bigint(20) NOT NULL AUTO_INCREMENT,
+            booking_id bigint(20) NOT NULL,
+            recipient_email varchar(255) NOT NULL,
+            recipient_name varchar(255),
+            recipient_type varchar(50) NOT NULL,
+            subject text NOT NULL,
+            message longtext NOT NULL,
+            status varchar(20) NOT NULL,
+            sent_at datetime DEFAULT CURRENT_TIMESTAMP,
+            error_message text,
+            PRIMARY KEY  (id),
+            KEY booking_id (booking_id),
+            KEY recipient_email (recipient_email),
+            KEY sent_at (sent_at)
+        ) $charset_collate;";
+        
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+    }
+    
     public function admin_footer_text($text) {
         $screen = get_current_screen();
         if ($screen && (strpos($screen->id, 'booking') !== false)) {
-            $text = '<span style="color: #666;">預約系統 by <a href="https://wumetax.com" target="_blank" style="color: #0073aa; text-decoration: none; font-weight: 600;">WumetaX</a> | 版本 2.7</span>';
+            $text = '<span style="color: #666;">預約系統 by <a href="https://wumetax.com" target="_blank" style="color: #0073aa; text-decoration: none; font-weight: 600;">WumetaX</a> | 版本 3.0</span>';
         }
         return $text;
     }
@@ -214,8 +264,8 @@ class BookingSystem {
     }
     
     public function enqueue_frontend_scripts() {
-        wp_enqueue_style('booking-style', plugin_dir_url(__FILE__) . 'css/booking-style.css', array(), '2.7');
-        wp_enqueue_script('booking-script', plugin_dir_url(__FILE__) . 'js/booking-script.js', array('jquery'), '2.7', true);
+        wp_enqueue_style('booking-style', plugin_dir_url(__FILE__) . 'css/booking-style.css', array(), '3.0');
+        wp_enqueue_script('booking-script', plugin_dir_url(__FILE__) . 'js/booking-script.js', array('jquery'), '3.0', true);
         
         $settings = $this->get_booking_settings();
         
@@ -224,11 +274,16 @@ class BookingSystem {
             'nonce' => wp_create_nonce('booking_nonce'),
             'availableDays' => $settings['available_days'],
             'blockedDates' => $this->get_all_blocked_dates_for_js(),
+            'startTime' => $settings['start_time'],
+            'endTime' => $settings['end_time'],
+            'timeInterval' => $settings['time_slot_interval'],
+            'durations' => $settings['available_durations'],
             'messages' => array(
                 'required' => '此欄位為必填',
                 'invalid_email' => '請輸入有效的 Email',
                 'invalid_phone' => '請輸入有效的電話號碼',
                 'select_time' => '請選擇預約時間',
+                'captcha_required' => '請完成驗證碼驗證',
             )
         ));
     }
@@ -304,59 +359,156 @@ class BookingSystem {
         return $count > 0;
     }
     
-public function get_available_times() {
-    // 修改: 加強安全檢查
-    if (!check_ajax_referer('booking_nonce', 'nonce', false)) {
-        error_log('Booking System: Nonce verification failed');
-        wp_send_json_error(array('message' => '安全驗證失敗'));
-        return;
-    }
-    
-    // 添加: 檢查必要參數
-    if (!isset($_POST['date']) || !isset($_POST['duration'])) {
-        wp_send_json_error(array('message' => '缺少必要參數'));
-        return;
-    }
-    
-    $date = sanitize_text_field($_POST['date']);
-    $duration = isset($_POST['duration']) ? intval($_POST['duration']) : 60;
-    
-    if ($this->is_date_blocked($date)) {
-        wp_send_json(array('times' => array()));
-        return;
-    }
-    
-    $settings = $this->get_booking_settings();
-    $day_of_week = date('N', strtotime($date));
-    
-    if (!in_array($day_of_week, $settings['available_days'])) {
-        wp_send_json(array('times' => array()));
-        return;
-    }
-    
-    $start_time = $settings['start_time'];
-    $end_time = $settings['end_time'];
-    $interval = intval($settings['time_slot_interval']);
-    
-    $available_times = array();
-    $current_time = strtotime($start_time);
-    $end_timestamp = strtotime($end_time);
-    
-    while ($current_time < $end_timestamp) {
-        $time_str = date('H:i', $current_time);
+    public function get_available_dates() {
+        check_ajax_referer('booking_nonce', 'nonce');
         
-        if ($this->is_time_slot_available($date, $time_str, $duration)) {
-            $available_times[] = $time_str;
+        $settings = $this->get_booking_settings();
+        $available_days = $settings['available_days'];
+        
+        // 取得未來60天的可預約日期
+        $dates = array();
+        $today = new DateTime();
+        
+        for ($i = 0; $i < 60; $i++) {
+            $date = clone $today;
+            $date->modify("+{$i} days");
+            $dateStr = $date->format('Y-m-d');
+            $dayOfWeek = $date->format('N');
+            
+            // 檢查是否為可預約星期
+            if (!in_array($dayOfWeek, $available_days)) {
+                continue;
+            }
+            
+            // 檢查是否為封鎖日期
+            if ($this->is_date_blocked($dateStr)) {
+                continue;
+            }
+            
+            $dates[] = array(
+                'date' => $dateStr,
+                'display' => $date->format('Y/m/d') . ' (' . $this->get_weekday_name($dayOfWeek) . ')'
+            );
         }
         
-        $current_time += ($interval * 60);
+        wp_send_json(array('dates' => $dates));
     }
     
-    wp_send_json(array('times' => $available_times));
-}
+    private function get_weekday_name($day) {
+        $names = array(
+            '1' => '週一',
+            '2' => '週二',
+            '3' => '週三',
+            '4' => '週四',
+            '5' => '週五',
+            '6' => '週六',
+            '7' => '週日'
+        );
+        return isset($names[$day]) ? $names[$day] : '';
+    }
+    
+    public function get_available_times() {
+        if (!check_ajax_referer('booking_nonce', 'nonce', false)) {
+            error_log('Booking System: Nonce verification failed');
+            wp_send_json_error(array('message' => '安全驗證失敗,請重新整理頁面'));
+            return;
+        }
+        
+        if (!isset($_POST['date']) || !isset($_POST['duration'])) {
+            error_log('Booking System: Missing required parameters');
+            wp_send_json_error(array('message' => '缺少必要參數'));
+            return;
+        }
+        
+        $date = sanitize_text_field($_POST['date']);
+        $duration = intval($_POST['duration']);
+        
+        if ($this->is_date_blocked($date)) {
+            wp_send_json(array('times' => array()));
+            return;
+        }
+        
+        $settings = $this->get_booking_settings();
+        $day_of_week = date('N', strtotime($date));
+        
+        if (!in_array($day_of_week, $settings['available_days'])) {
+            wp_send_json(array('times' => array()));
+            return;
+        }
+        
+        $start_time = $settings['start_time'];
+        $end_time = $settings['end_time'];
+        $interval = intval($settings['time_slot_interval']);
+        
+        $available_times = array();
+        $current_time = strtotime($start_time);
+        $end_timestamp = strtotime($end_time);
+        
+        while ($current_time < $end_timestamp) {
+            $time_str = date('H:i', $current_time);
+            
+            if ($this->is_time_slot_available($date, $time_str, $duration)) {
+                $available_times[] = array(
+                    'value' => $time_str,
+                    'display' => $time_str
+                );
+            }
+            
+            $current_time += ($interval * 60);
+        }
+        
+        wp_send_json(array('times' => $available_times));
+    }
+    
+    public function verify_captcha() {
+        check_ajax_referer('booking_nonce', 'nonce');
+        
+        if (!isset($_POST['answer'])) {
+            wp_send_json_error(array('message' => '缺少驗證答案'));
+            return;
+        }
+        
+        $answer = intval($_POST['answer']);
+        
+        if (!isset($_SESSION)) {
+            session_start();
+        }
+        
+        if (!isset($_SESSION['booking_captcha_answer'])) {
+            wp_send_json_error(array('message' => '驗證碼已過期'));
+            return;
+        }
+        
+        if ($answer === $_SESSION['booking_captcha_answer']) {
+            $_SESSION['booking_captcha_verified'] = true;
+            wp_send_json_success(array('message' => '驗證成功'));
+        } else {
+            wp_send_json_error(array('message' => '驗證碼錯誤'));
+        }
+    }
+    
+    private function generate_captcha() {
+        if (!isset($_SESSION)) {
+            session_start();
+        }
+        
+        $num1 = rand(1, 10);
+        $num2 = rand(1, 10);
+        $answer = $num1 + $num2;
+        
+        $_SESSION['booking_captcha_answer'] = $answer;
+        $_SESSION['booking_captcha_verified'] = false;
+        
+        return array(
+            'question' => "{$num1} + {$num2} = ?",
+            'num1' => $num1,
+            'num2' => $num2
+        );
+    }
     
     public function render_booking_form() {
         $settings = $this->get_booking_settings();
+        $captcha = $this->generate_captcha();
         
         ob_start();
         ?>
@@ -383,11 +535,13 @@ public function get_available_times() {
                 
                 <div class="form-group">
                     <label for="booking_date">預約日期 <span class="required">*</span></label>
-                    <input type="date" id="booking_date" name="booking_date" required min="<?php echo date('Y-m-d'); ?>">
+                    <select id="booking_date" name="booking_date" required>
+                        <option value="">載入中...</option>
+                    </select>
                     <span class="error-message" id="error_date"></span>
                 </div>
                 
-                <div class="form-group" id="duration-group">
+                <div class="form-group">
                     <label for="booking_duration">預約時長 <span class="required">*</span></label>
                     <select id="booking_duration" name="booking_duration" required>
                         <?php foreach ($settings['available_durations'] as $duration): ?>
@@ -399,7 +553,7 @@ public function get_available_times() {
                     <span class="error-message" id="error_duration"></span>
                 </div>
                 
-                <div class="form-group" id="time-group">
+                <div class="form-group">
                     <label for="booking_time">預約時間 <span class="required">*</span></label>
                     <select id="booking_time" name="booking_time" required disabled>
                         <option value="">請先選擇日期和時長</option>
@@ -409,7 +563,16 @@ public function get_available_times() {
                 
                 <div class="form-group">
                     <label for="booking_note">備註</label>
-                    <textarea id="booking_note" name="booking_note" rows="4"></textarea>
+                    <textarea id="booking_note" name="booking_note" rows="4" placeholder="如有特殊需求請在此註明"></textarea>
+                </div>
+                
+                <div class="form-group captcha-group">
+                    <label for="captcha_answer">驗證碼 <span class="required">*</span></label>
+                    <div class="captcha-question">
+                        <span class="captcha-text"><?php echo esc_html($captcha['question']); ?></span>
+                        <input type="number" id="captcha_answer" name="captcha_answer" required style="width: 100px; display: inline-block;">
+                    </div>
+                    <span class="error-message" id="error_captcha"></span>
                 </div>
                 
                 <button type="submit" class="submit-booking-btn">送出預約</button>
@@ -480,10 +643,81 @@ public function get_available_times() {
         return true;
     }
     
+    private function send_booking_email($booking_id, $name, $email, $phone, $date, $time, $duration, $note) {
+        $templates = get_option('booking_email_templates');
+        
+        if (!$templates) {
+            return false;
+        }
+        
+        $placeholders = array(
+            '{site_name}' => get_bloginfo('name'),
+            '{site_url}' => get_bloginfo('url'),
+            '{customer_name}' => $name,
+            '{customer_email}' => $email,
+            '{customer_phone}' => $phone,
+            '{booking_date}' => $date,
+            '{booking_time}' => $time,
+            '{booking_duration}' => $duration,
+            '{booking_note}' => $note ? $note : '無',
+            '{booking_id}' => $booking_id,
+            '{created_time}' => current_time('Y-m-d H:i:s'),
+            '{admin_url}' => admin_url('post.php?post=' . $booking_id . '&action=edit')
+        );
+        
+        // 發送給客戶
+        $customer_subject = str_replace(array_keys($placeholders), array_values($placeholders), $templates['customer_subject']);
+        $customer_body = str_replace(array_keys($placeholders), array_values($placeholders), $templates['customer_body']);
+        
+        $customer_sent = wp_mail($email, $customer_subject, $customer_body, array('Content-Type: text/plain; charset=UTF-8'));
+        $this->log_email($booking_id, $email, $name, 'customer', $customer_subject, $customer_body, $customer_sent ? 'sent' : 'failed');
+        
+        // 發送給管理員
+        $admin_email = get_option('admin_email');
+        $admin_subject = str_replace(array_keys($placeholders), array_values($placeholders), $templates['admin_subject']);
+        $admin_body = str_replace(array_keys($placeholders), array_values($placeholders), $templates['admin_body']);
+        
+        $admin_sent = wp_mail($admin_email, $admin_subject, $admin_body, array('Content-Type: text/plain; charset=UTF-8'));
+        $this->log_email($booking_id, $admin_email, '管理員', 'admin', $admin_subject, $admin_body, $admin_sent ? 'sent' : 'failed');
+        
+        return $customer_sent && $admin_sent;
+    }
+    
+    private function log_email($booking_id, $recipient_email, $recipient_name, $recipient_type, $subject, $message, $status, $error = '') {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'booking_email_logs';
+        
+        $wpdb->insert(
+            $table_name,
+            array(
+                'booking_id' => $booking_id,
+                'recipient_email' => $recipient_email,
+                'recipient_name' => $recipient_name,
+                'recipient_type' => $recipient_type,
+                'subject' => $subject,
+                'message' => $message,
+                'status' => $status,
+                'error_message' => $error,
+                'sent_at' => current_time('mysql')
+            ),
+            array('%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')
+        );
+    }
+    
     public function handle_booking_submission() {
         check_ajax_referer('booking_nonce', 'nonce');
         
         header('Content-Type: application/json; charset=utf-8');
+        
+        // 驗證 Captcha
+        if (!isset($_SESSION)) {
+            session_start();
+        }
+        
+        if (!isset($_SESSION['booking_captcha_verified']) || !$_SESSION['booking_captcha_verified']) {
+            wp_send_json_error(array('message' => '請先完成驗證碼驗證'));
+            return;
+        }
         
         $name = sanitize_text_field($_POST['name']);
         $email = sanitize_email($_POST['email']);
@@ -550,30 +784,14 @@ public function get_available_times() {
             update_post_meta($booking_id, '_booking_duration', $duration);
             update_post_meta($booking_id, '_booking_note', $note);
             
-            $admin_email = get_option('admin_email');
-            $subject = '新的預約通知';
-            $message = "收到新的預約：\n\n";
-            $message .= "姓名：{$name}\n";
-            $message .= "Email：{$email}\n";
-            $message .= "電話：{$phone}\n";
-            $message .= "日期：{$date}\n";
-            $message .= "時間：{$time}\n";
-            $message .= "時長：{$duration}分鐘\n";
-            $message .= "備註：{$note}\n";
+            // 發送通知信件
+            $this->send_booking_email($booking_id, $name, $email, $phone, $date, $time, $duration, $note);
             
-            wp_mail($admin_email, $subject, $message, array('Content-Type: text/plain; charset=UTF-8'));
+            // 重置驗證碼
+            unset($_SESSION['booking_captcha_verified']);
+            unset($_SESSION['booking_captcha_answer']);
             
-            $customer_subject = '預約確認通知';
-            $customer_message = "您好 {$name}，\n\n";
-            $customer_message .= "您的預約已收到，詳細資訊如下：\n\n";
-            $customer_message .= "日期：{$date}\n";
-            $customer_message .= "時間：{$time}\n";
-            $customer_message .= "時長：{$duration}分鐘\n\n";
-            $customer_message .= "我們會盡快確認您的預約。\n";
-            
-            wp_mail($email, $customer_subject, $customer_message, array('Content-Type: text/plain; charset=UTF-8'));
-            
-            wp_send_json_success(array('message' => '預約成功！我們會儘快與您確認。'));
+            wp_send_json_success(array('message' => '預約成功！我們已寄送確認信件至您的信箱。'));
         } else {
             wp_send_json_error(array('message' => '預約失敗，請稍後再試'));
         }
@@ -804,6 +1022,293 @@ public function get_available_times() {
             'booking-settings',
             array($this, 'render_settings_page')
         );
+        
+        add_submenu_page(
+            'edit.php?post_type=booking',
+            '信件模板',
+            '信件模板',
+            'manage_options',
+            'booking-email-templates',
+            array($this, 'render_email_templates_page')
+        );
+        
+        add_submenu_page(
+            'edit.php?post_type=booking',
+            '發信紀錄',
+            '發信紀錄',
+            'manage_options',
+            'booking-email-logs',
+            array($this, 'render_email_logs_page')
+        );
+    }
+    
+    public function render_email_templates_page() {
+        if (isset($_POST['save_email_templates'])) {
+            check_admin_referer('email_templates_action', 'email_templates_nonce');
+            
+            $templates = array(
+                'customer_subject' => sanitize_text_field($_POST['customer_subject']),
+                'customer_body' => sanitize_textarea_field($_POST['customer_body']),
+                'admin_subject' => sanitize_text_field($_POST['admin_subject']),
+                'admin_body' => sanitize_textarea_field($_POST['admin_body']),
+            );
+            
+            update_option('booking_email_templates', $templates);
+            echo '<div class="notice notice-success is-dismissible"><p><strong>信件模板已儲存！</strong></p></div>';
+        }
+        
+        $templates = get_option('booking_email_templates');
+        ?>
+        <div class="wrap">
+            <h1>信件模板設定</h1>
+            <p class="description">設定預約成功後寄送給客戶和管理員的通知信件內容</p>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+                <h3 style="margin-top: 0;">📧 可用變數說明</h3>
+                <p style="margin-bottom: 10px;">您可以在信件主旨和內容中使用以下變數，系統會自動替換為實際內容：</p>
+                <ul style="list-style: disc; margin-left: 20px;">
+                    <li><code>{site_name}</code> - 網站名稱</li>
+                    <li><code>{site_url}</code> - 網站網址</li>
+                    <li><code>{customer_name}</code> - 客戶姓名</li>
+                    <li><code>{customer_email}</code> - 客戶 Email</li>
+                    <li><code>{customer_phone}</code> - 客戶電話</li>
+                    <li><code>{booking_date}</code> - 預約日期</li>
+                    <li><code>{booking_time}</code> - 預約時間</li>
+                    <li><code>{booking_duration}</code> - 預約時長</li>
+                    <li><code>{booking_note}</code> - 預約備註</li>
+                    <li><code>{booking_id}</code> - 預約編號</li>
+                    <li><code>{created_time}</code> - 建立時間</li>
+                    <li><code>{admin_url}</code> - 後台編輯連結（僅管理員信件可用）</li>
+                </ul>
+            </div>
+            
+            <form method="post" action="">
+                <?php wp_nonce_field('email_templates_action', 'email_templates_nonce'); ?>
+                
+                <div style="background: white; padding: 20px; margin: 20px 0; border: 1px solid #ccc; border-radius: 4px;">
+                    <h2>📨 客戶通知信件</h2>
+                    <p class="description">預約成功後寄送給填寫者的確認信件</p>
+                    
+                    <table class="form-table">
+                        <tr>
+                            <th><label for="customer_subject">信件主旨</label></th>
+                            <td>
+                                <input type="text" id="customer_subject" name="customer_subject" value="<?php echo esc_attr($templates['customer_subject']); ?>" class="large-text">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="customer_body">信件內容</label></th>
+                            <td>
+                                <textarea id="customer_body" name="customer_body" rows="12" class="large-text"><?php echo esc_textarea($templates['customer_body']); ?></textarea>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <div style="background: white; padding: 20px; margin: 20px 0; border: 1px solid #ccc; border-radius: 4px;">
+                    <h2>👨‍💼 管理員通知信件</h2>
+                    <p class="description">有新預約時寄送給管理員的通知信件</p>
+                    
+                    <table class="form-table">
+                        <tr>
+                            <th><label for="admin_subject">信件主旨</label></th>
+                            <td>
+                                <input type="text" id="admin_subject" name="admin_subject" value="<?php echo esc_attr($templates['admin_subject']); ?>" class="large-text">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="admin_body">信件內容</label></th>
+                            <td>
+                                <textarea id="admin_body" name="admin_body" rows="12" class="large-text"><?php echo esc_textarea($templates['admin_body']); ?></textarea>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <?php submit_button('儲存信件模板', 'primary large', 'save_email_templates'); ?>
+            </form>
+        </div>
+        <?php
+    }
+    
+    public function render_email_logs_page() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'booking_email_logs';
+        
+        $per_page = 20;
+        $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
+        $offset = ($current_page - 1) * $per_page;
+        
+        $total_logs = $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+        $total_pages = ceil($total_logs / $per_page);
+        
+        $logs = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table_name ORDER BY sent_at DESC LIMIT %d OFFSET %d",
+            $per_page,
+            $offset
+        ));
+        ?>
+        <div class="wrap">
+            <h1>發信紀錄</h1>
+            <p class="description">查看所有預約通知信件的發送記錄</p>
+            
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">編號</th>
+                        <th style="width: 120px;">預約ID</th>
+                        <th>收件人</th>
+                        <th style="width: 100px;">類型</th>
+                        <th>主旨</th>
+                        <th style="width: 80px;">狀態</th>
+                        <th style="width: 150px;">發送時間</th>
+                        <th style="width: 120px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($logs)): ?>
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 30px;">
+                                目前沒有發信紀錄
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($logs as $log): ?>
+                            <tr>
+                                <td><?php echo esc_html($log->id); ?></td>
+                                <td>
+                                    <a href="<?php echo admin_url('post.php?post=' . $log->booking_id . '&action=edit'); ?>" target="_blank">
+                                        #<?php echo esc_html($log->booking_id); ?>
+                                    </a>
+                                </td>
+                                <td>
+                                    <strong><?php echo esc_html($log->recipient_name); ?></strong><br>
+                                    <small><?php echo esc_html($log->recipient_email); ?></small>
+                                </td>
+                                <td>
+                                    <?php if ($log->recipient_type === 'customer'): ?>
+                                        <span style="color: #0073aa;">👤 客戶</span>
+                                    <?php else: ?>
+                                        <span style="color: #d63638;">👨‍💼 管理員</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo esc_html($log->subject); ?></td>
+                                <td>
+                                    <?php if ($log->status === 'sent'): ?>
+                                        <span style="color: #4caf50; font-weight: bold;">✓ 成功</span>
+                                    <?php else: ?>
+                                        <span style="color: #f44336; font-weight: bold;">✗ 失敗</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo esc_html(date('Y-m-d H:i', strtotime($log->sent_at))); ?></td>
+                                <td>
+                                    <button type="button" class="button button-small view-email-detail" data-id="<?php echo esc_attr($log->id); ?>">
+                                        查看
+                                    </button>
+                                    <button type="button" class="button button-small delete-email-log" data-id="<?php echo esc_attr($log->id); ?>" style="color: #b32d2e;">
+                                        刪除
+                                    </button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+            
+            <?php if ($total_pages > 1): ?>
+                <div class="tablenav">
+                    <div class="tablenav-pages">
+                        <?php
+                        echo paginate_links(array(
+                            'base' => add_query_arg('paged', '%#%'),
+                            'format' => '',
+                            'prev_text' => '&laquo;',
+                            'next_text' => '&raquo;',
+                            'total' => $total_pages,
+                            'current' => $current_page
+                        ));
+                        ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+        
+        <div id="email-detail-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999999;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 80%; overflow-y: auto;">
+                <h2 style="margin-top: 0;">信件內容詳情</h2>
+                <div id="email-detail-content"></div>
+                <button type="button" class="button button-primary" onclick="jQuery('#email-detail-modal').hide();">關閉</button>
+            </div>
+        </div>
+        
+        <script>
+        jQuery(document).ready(function($) {
+            $('.view-email-detail').on('click', function() {
+                var logId = $(this).data('id');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'get_email_log_detail',
+                        log_id: logId,
+                        nonce: '<?php echo wp_create_nonce('booking_admin_nonce'); ?>'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            $('#email-detail-content').html(response.data.html);
+                            $('#email-detail-modal').show();
+                        }
+                    }
+                });
+            });
+            
+            $('.delete-email-log').on('click', function() {
+                if (!confirm('確定要刪除此發信紀錄嗎？')) {
+                    return;
+                }
+                
+                var logId = $(this).data('id');
+                var row = $(this).closest('tr');
+                
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'delete_email_log',
+                        log_id: logId,
+                        nonce: '<?php echo wp_create_nonce('booking_admin_nonce'); ?>'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            row.fadeOut(300, function() {
+                                $(this).remove();
+                            });
+                        } else {
+                            alert('刪除失敗');
+                        }
+                    }
+                });
+            });
+        });
+        </script>
+        <?php
+    }
+    
+    public function delete_email_log() {
+        check_ajax_referer('booking_admin_nonce', 'nonce');
+        
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'booking_email_logs';
+        $log_id = intval($_POST['log_id']);
+        
+        $result = $wpdb->delete($table_name, array('id' => $log_id), array('%d'));
+        
+        if ($result) {
+            wp_send_json_success(array('message' => '紀錄已刪除'));
+        } else {
+            wp_send_json_error(array('message' => '刪除失敗'));
+        }
     }
     
     public function render_calendar_page() {
@@ -878,8 +1383,7 @@ public function get_available_times() {
                                 <fieldset>
                                     <legend class="screen-reader-text"><span>可預約星期</span></legend>
                                     <p class="description" style="margin-bottom: 15px;">
-                                        <strong>功能說明：</strong>選擇您開放預約的星期。只有勾選的星期會在前台日曆中顯示為可選日期。<br>
-                                        <strong>範例：</strong>如果只勾選週一到週五,週六日將不會出現在預約日曆中。
+                                        <strong>功能說明：</strong>選擇您開放預約的星期。只有勾選的星期會在前台顯示為可選日期。
                                     </p>
                                     <label style="display: inline-block; margin-right: 15px;">
                                         <input type="checkbox" name="available_days[]" value="1" <?php checked(in_array('1', $settings['available_days'])); ?>> 
@@ -917,10 +1421,6 @@ public function get_available_times() {
                             <th scope="row"><label for="start_time">營業開始時間</label></th>
                             <td>
                                 <input type="time" id="start_time" name="start_time" value="<?php echo esc_attr($settings['start_time']); ?>" style="padding: 8px; font-size: 14px;">
-                                <p class="description">
-                                    <strong>功能說明：</strong>設定您每天開始接受預約的時間。<br>
-                                    <strong>範例：</strong>設定為 09:00,表示早上9點開始可以預約。
-                                </p>
                             </td>
                         </tr>
                         
@@ -928,10 +1428,6 @@ public function get_available_times() {
                             <th scope="row"><label for="end_time">營業結束時間</label></th>
                             <td>
                                 <input type="time" id="end_time" name="end_time" value="<?php echo esc_attr($settings['end_time']); ?>" style="padding: 8px; font-size: 14px;">
-                                <p class="description">
-                                    <strong>功能說明：</strong>設定您每天最後一個預約時段的開始時間。<br>
-                                    <strong>範例：</strong>設定為 18:00,最後一個預約時段將從下午6點開始。
-                                </p>
                             </td>
                         </tr>
                         
@@ -943,10 +1439,6 @@ public function get_available_times() {
                                     <option value="30" <?php selected($settings['time_slot_interval'], '30'); ?>>30分鐘</option>
                                     <option value="60" <?php selected($settings['time_slot_interval'], '60'); ?>>60分鐘</option>
                                 </select>
-                                <p class="description">
-                                    <strong>功能說明：</strong>設定每個時段之間的間隔時間。<br>
-                                    <strong>範例：</strong>選擇30分鐘,可預約時間將會是 09:00、09:30、10:00、10:30 等。
-                                </p>
                             </td>
                         </tr>
                         
@@ -954,26 +1446,21 @@ public function get_available_times() {
                             <th scope="row"><label>可選預約時長</label></th>
                             <td>
                                 <fieldset>
-                                    <legend class="screen-reader-text"><span>可選預約時長</span></legend>
-                                    <p class="description" style="margin-bottom: 15px;">
-                                        <strong>功能說明：</strong>客戶可以選擇的預約時長選項。<br>
-                                        <strong>範例：</strong>勾選 30、60、90 分鐘,客戶就可以在這三個選項中選擇。
-                                    </p>
                                     <label style="display: block; margin-bottom: 8px;">
                                         <input type="checkbox" name="available_durations[]" value="30" <?php checked(in_array('30', $settings['available_durations'])); ?>> 
-                                        <strong>30分鐘</strong> - 短時間服務
+                                        <strong>30分鐘</strong>
                                     </label>
                                     <label style="display: block; margin-bottom: 8px;">
                                         <input type="checkbox" name="available_durations[]" value="60" <?php checked(in_array('60', $settings['available_durations'])); ?>> 
-                                        <strong>60分鐘</strong> - 標準服務時長
+                                        <strong>60分鐘</strong>
                                     </label>
                                     <label style="display: block; margin-bottom: 8px;">
                                         <input type="checkbox" name="available_durations[]" value="90" <?php checked(in_array('90', $settings['available_durations'])); ?>> 
-                                        <strong>90分鐘</strong> - 較長時間服務
+                                        <strong>90分鐘</strong>
                                     </label>
                                     <label style="display: block; margin-bottom: 8px;">
                                         <input type="checkbox" name="available_durations[]" value="120" <?php checked(in_array('120', $settings['available_durations'])); ?>> 
-                                        <strong>120分鐘</strong> - 完整長時間服務
+                                        <strong>120分鐘</strong>
                                     </label>
                                 </fieldset>
                             </td>
@@ -988,10 +1475,6 @@ public function get_available_times() {
                                     <option value="90" <?php selected($settings['default_duration'], '90'); ?>>90分鐘</option>
                                     <option value="120" <?php selected($settings['default_duration'], '120'); ?>>120分鐘</option>
                                 </select>
-                                <p class="description">
-                                    <strong>功能說明：</strong>客戶開啟預約表單時,預設選中的時長選項。<br>
-                                    <strong>建議：</strong>選擇您最常見的服務時長作為預設值。
-                                </p>
                             </td>
                         </tr>
                     </table>
@@ -1003,11 +1486,7 @@ public function get_available_times() {
             <div id="blocked-dates" class="tab-content" style="display: none; margin-top: 20px;">
                 <div style="max-width: 1100px;">
                     <h3>新增封鎖日期</h3>
-                    <p class="description">
-                        <strong>功能說明：</strong>封鎖特定日期或日期區間,讓客戶無法在這些日期預約。<br>
-                        <strong>使用情境：</strong>適用於國定假日、公司年假、臨時休息等情況。<br>
-                        <strong>操作方式：</strong>單一日期請在開始和結束填寫相同日期;日期區間請填寫不同的開始和結束日期。
-                    </p>
+                    <p class="description">封鎖特定日期或日期區間,讓客戶無法在這些日期預約。</p>
                     
                     <div style="background: white; padding: 20px; border: 1px solid #ccc; border-radius: 4px; margin: 20px 0;">
                         <table class="form-table">
@@ -1015,21 +1494,18 @@ public function get_available_times() {
                                 <th><label for="new_blocked_start_date">開始日期</label></th>
                                 <td>
                                     <input type="date" id="new_blocked_start_date" style="padding: 8px; font-size: 14px; width: 200px;">
-                                    <p class="description">封鎖的起始日期</p>
                                 </td>
                             </tr>
                             <tr>
                                 <th><label for="new_blocked_end_date">結束日期</label></th>
                                 <td>
                                     <input type="date" id="new_blocked_end_date" style="padding: 8px; font-size: 14px; width: 200px;">
-                                    <p class="description">封鎖的結束日期(單一日期請填寫相同日期)</p>
                                 </td>
                             </tr>
                             <tr>
                                 <th><label for="new_blocked_note">備註說明</label></th>
                                 <td>
-                                    <input type="text" id="new_blocked_note" placeholder="例如：春節假期、公司年假、設備維修" style="padding: 8px; font-size: 14px; width: 400px;">
-                                    <p class="description">選填,記錄此區間封鎖的原因</p>
+                                    <input type="text" id="new_blocked_note" placeholder="例如：春節假期、公司年假" style="padding: 8px; font-size: 14px; width: 400px;">
                                 </td>
                             </tr>
                         </table>
@@ -1050,24 +1526,14 @@ public function get_available_times() {
                         <tbody id="blocked-dates-list">
                             <?php if (empty($blocked_dates)): ?>
                                 <tr>
-                                    <td colspan="5" style="text-align: center; padding: 30px; color: #666;">
-                                        目前沒有封鎖日期<br>
-                                        <small style="color: #999;">您可以在上方新增需要封鎖的日期或日期區間</small>
-                                    </td>
+                                    <td colspan="5" style="text-align: center; padding: 30px;">目前沒有封鎖日期</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($blocked_dates as $blocked): ?>
                                     <tr data-id="<?php echo esc_attr($blocked->id); ?>">
                                         <td><strong><?php echo esc_html($blocked->start_date); ?></strong></td>
                                         <td><strong><?php echo esc_html($blocked->end_date); ?></strong></td>
-                                        <td>
-                                            <?php if ($blocked->note): ?>
-                                                <span class="dashicons dashicons-info" style="color: #2271b1;"></span>
-                                                <?php echo esc_html($blocked->note); ?>
-                                            <?php else: ?>
-                                                <span style="color: #999;">-</span>
-                                            <?php endif; ?>
-                                        </td>
+                                        <td><?php echo $blocked->note ? esc_html($blocked->note) : '<span style="color: #999;">-</span>'; ?></td>
                                         <td><?php echo esc_html(date('Y-m-d H:i', strtotime($blocked->created_at))); ?></td>
                                         <td>
                                             <button type="button" class="button button-small remove-blocked-date" data-id="<?php echo esc_attr($blocked->id); ?>" style="color: #b32d2e;">
@@ -1138,7 +1604,7 @@ public function get_available_times() {
                 'data' => $row
             ));
         } else {
-            wp_send_json_error(array('message' => '新增失敗: ' . $wpdb->last_error));
+            wp_send_json_error(array('message' => '新增失敗'));
         }
     }
     
@@ -1217,7 +1683,7 @@ public function get_available_times() {
     
     public function enqueue_admin_scripts($hook) {
         if ('edit.php' === $hook && isset($_GET['post_type']) && $_GET['post_type'] === 'booking') {
-            wp_enqueue_script('booking-admin-list', plugin_dir_url(__FILE__) . 'js/booking-admin-list.js', array('jquery'), '2.7', true);
+            wp_enqueue_script('booking-admin-list', plugin_dir_url(__FILE__) . 'js/booking-admin-list.js', array('jquery'), '3.0', true);
             wp_localize_script('booking-admin-list', 'bookingAdminData', array(
                 'ajaxurl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('booking_admin_nonce')
@@ -1225,7 +1691,7 @@ public function get_available_times() {
         }
         
         if ('booking_page_booking-settings' === $hook) {
-            wp_enqueue_script('booking-settings', plugin_dir_url(__FILE__) . 'js/booking-settings.js', array('jquery'), '2.7', true);
+            wp_enqueue_script('booking-settings', plugin_dir_url(__FILE__) . 'js/booking-settings.js', array('jquery'), '3.0', true);
             wp_localize_script('booking-settings', 'bookingAdminData', array(
                 'ajaxurl' => admin_url('admin-ajax.php'),
                 'nonce' => wp_create_nonce('booking_admin_nonce')
@@ -1237,8 +1703,8 @@ public function get_available_times() {
             wp_enqueue_script('fullcalendar', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js', array(), '6.1.10', true);
             wp_enqueue_script('fullcalendar-zh', 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/zh-tw.global.min.js', array('fullcalendar'), '6.1.10', true);
             
-            wp_enqueue_style('booking-admin-style', plugin_dir_url(__FILE__) . 'css/booking-admin.css', array(), '2.7');
-            wp_enqueue_script('booking-calendar', plugin_dir_url(__FILE__) . 'js/booking-calendar.js', array('jquery', 'fullcalendar', 'fullcalendar-zh'), '2.7', true);
+            wp_enqueue_style('booking-admin-style', plugin_dir_url(__FILE__) . 'css/booking-admin.css', array(), '3.0');
+            wp_enqueue_script('booking-calendar', plugin_dir_url(__FILE__) . 'js/booking-calendar.js', array('jquery', 'fullcalendar', 'fullcalendar-zh'), '3.0', true);
             
             $bookings = $this->get_all_bookings_for_calendar();
             wp_localize_script('booking-calendar', 'bookingCalendarData', array(
