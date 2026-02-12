@@ -22,31 +22,34 @@ jQuery(document).ready(function($) {
             },
             success: function(response) {
                 if (response.success) {
-                    var data = response.data.data;
-                    var noteDisplay = data.note ? data.note : '<span style="color: #999;">-</span>';
+                    alert(response.data.message);
                     
-                    var row = '<tr data-id="' + data.id + '">' +
-                        '<td><strong>' + data.start_date + '</strong></td>' +
-                        '<td><strong>' + data.end_date + '</strong></td>' +
-                        '<td>' + noteDisplay + '</td>' +
-                        '<td>' + data.created_at + '</td>' +
-                        '<td><button type="button" class="button button-small remove-blocked-date" data-id="' + data.id + '" style="color: #b32d2e;">刪除</button></td>' +
-                        '</tr>';
-                    
-                    if ($('#blocked-dates-list tr td[colspan="5"]').length > 0) {
-                        $('#blocked-dates-list').html(row);
-                    } else {
-                        $('#blocked-dates-list').prepend(row);
-                    }
-                    
+                    // 清空輸入框
                     $('#new_blocked_start_date').val('');
                     $('#new_blocked_end_date').val('');
                     $('#new_blocked_note').val('');
                     
-                    alert('封鎖日期已新增');
+                    // 如果列表是空的,先移除空訊息行
+                    if ($('#blocked-dates-list tr').length === 1 && $('#blocked-dates-list tr td').attr('colspan')) {
+                        $('#blocked-dates-list').empty();
+                    }
+                    
+                    // 新增到列表
+                    var newRow = '<tr data-id="' + response.data.data.id + '">' +
+                        '<td><strong>' + response.data.data.start_date + '</strong></td>' +
+                        '<td><strong>' + response.data.data.end_date + '</strong></td>' +
+                        '<td>' + (response.data.data.note || '<span style="color: #999;">-</span>') + '</td>' +
+                        '<td>' + response.data.data.created_at + '</td>' +
+                        '<td><button type="button" class="button button-small remove-blocked-date" data-id="' + response.data.data.id + '" style="color: #b32d2e;">刪除</button></td>' +
+                        '</tr>';
+                    
+                    $('#blocked-dates-list').prepend(newRow);
                 } else {
                     alert(response.data.message);
                 }
+            },
+            error: function() {
+                alert('操作失敗,請稍後再試');
             }
         });
     });
@@ -73,13 +76,17 @@ jQuery(document).ready(function($) {
                     row.fadeOut(300, function() {
                         $(this).remove();
                         
+                        // 如果列表空了,顯示空訊息
                         if ($('#blocked-dates-list tr').length === 0) {
                             $('#blocked-dates-list').html('<tr><td colspan="5" style="text-align: center; padding: 30px;">目前沒有封鎖日期</td></tr>');
                         }
                     });
                 } else {
-                    alert('刪除失敗');
+                    alert(response.data.message);
                 }
+            },
+            error: function() {
+                alert('刪除失敗,請稍後再試');
             }
         });
     });
