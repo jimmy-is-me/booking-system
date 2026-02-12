@@ -2,8 +2,8 @@ jQuery(document).ready(function($) {
     var captchaVerified = false;
     
     // 設定日期選擇器的可用日期
-    var availableDays = bookingAjax.availableDays; // ['1', '2', '3', '4', '5'] 
-    var blockedDates = bookingAjax.blockedDates; // ['2026-02-15', '2026-02-20']
+    var availableDays = bookingAjax.availableDays;
+    var blockedDates = bookingAjax.blockedDates;
     
     console.log('可預約星期:', availableDays);
     console.log('封鎖日期:', blockedDates);
@@ -14,20 +14,17 @@ jQuery(document).ready(function($) {
         
         if (!dateInput) return;
         
-        // 監聽日期選擇器打開事件
         dateInput.addEventListener('input', function(e) {
             var selectedDate = this.value;
             
             if (!selectedDate) return;
             
-            // 檢查是否為封鎖日期
             if (blockedDates.includes(selectedDate)) {
                 alert('此日期已被封鎖,無法預約\n請選擇其他日期');
                 this.value = '';
                 return;
             }
             
-            // 檢查是否為非營業日
             var date = new Date(selectedDate);
             var dayOfWeek = date.getDay();
             var dayNumber = dayOfWeek === 0 ? '7' : dayOfWeek.toString();
@@ -40,7 +37,6 @@ jQuery(document).ready(function($) {
         });
     }
     
-    // 初始化
     disableBlockedDates();
     
     // 當選擇日期時檢查是否可預約
@@ -55,7 +51,6 @@ jQuery(document).ready(function($) {
             return;
         }
         
-        // 檢查是否為可預約的星期
         var date = new Date(selectedDate);
         var dayOfWeek = date.getDay();
         var dayNumber = dayOfWeek === 0 ? '7' : dayOfWeek.toString();
@@ -68,7 +63,6 @@ jQuery(document).ready(function($) {
             return;
         }
         
-        // 檢查是否為封鎖日期
         if (blockedDates.includes(selectedDate)) {
             $('#error_date').text('此日期已被封鎖,不開放預約').css('color', '#d63638').show();
             $(this).addClass('error');
@@ -77,7 +71,6 @@ jQuery(document).ready(function($) {
             return;
         }
         
-        // 日期有效,顯示時長選擇
         $('#error_date').text('').hide();
         $(this).removeClass('error');
         $('#duration-group').slideDown();
@@ -85,7 +78,6 @@ jQuery(document).ready(function($) {
         
         console.log('選擇日期:', selectedDate, '星期:', dayNumber);
         
-        // 如果已經選擇時長,直接載入時間
         var duration = $('#booking_duration').val();
         if (duration) {
             loadAvailableTimes(selectedDate, duration);
@@ -166,13 +158,17 @@ jQuery(document).ready(function($) {
         });
     }
     
-    // 驗證碼驗證
-    $('#captcha_answer').on('blur', function() {
-        var answer = $(this).val();
+    // 驗證碼即時驗證 - 改用 input 和 blur 雙重監聽
+    $('#captcha_answer').on('input blur', function() {
+        var answer = $(this).val().trim();
         
         if (!answer) {
+            $('#error_captcha').text('').hide();
+            captchaVerified = false;
             return;
         }
+        
+        console.log('驗證碼輸入:', answer);
         
         $.ajax({
             url: bookingAjax.ajaxurl,
@@ -183,15 +179,20 @@ jQuery(document).ready(function($) {
                 answer: answer
             },
             success: function(response) {
+                console.log('驗證碼驗證結果:', response);
                 if (response.success) {
                     $('#error_captcha').text('✓ 驗證成功').css('color', '#4caf50').show();
                     $('#captcha_answer').removeClass('error').css('border-color', '#4caf50');
                     captchaVerified = true;
                 } else {
                     $('#error_captcha').text('✗ 驗證碼錯誤').css('color', '#d63638').show();
-                    $('#captcha_answer').addClass('error');
+                    $('#captcha_answer').addClass('error').css('border-color', '#d63638');
                     captchaVerified = false;
                 }
+            },
+            error: function() {
+                $('#error_captcha').text('✗ 驗證失敗').css('color', '#d63638').show();
+                captchaVerified = false;
             }
         });
     });
@@ -220,9 +221,11 @@ jQuery(document).ready(function($) {
         return phone.length >= 8;
     }
     
-    // 表單提交
+    // 表單提交 - 改為同步驗證驗證碼
     $('#booking-form').on('submit', function(e) {
         e.preventDefault();
+        
+        console.log('開始提交表單');
         
         $('.error-message').text('').hide();
         $('.form-group input, .form-group select').removeClass('error');
@@ -245,12 +248,53 @@ jQuery(document).ready(function($) {
             return val.length > 0;
         }, bookingAjax.messages.select_time) && isValid;
         
-        // 驗證驗證碼
-        if (!captchaVerified) {
-            $('#error_captcha').text(bookingAjax.messages.captcha_required).css('color', '#d63638').show();
+        // 驗證碼檢查 - 先檢查是否有填寫
+        var captchaAnswer = $('#captcha_answer').val().trim();
+        if (!captchaAnswer) {
+            $('#error_captcha').text('請輸入驗證碼').css('color', '#d63638').show();
             $('#captcha_answer').addClass('error');
             isValid = false;
+        } else if (!captchaVerified) {
+            // 如果還沒驗證過,現在驗證
+            console.log('提交時驗證驗證碼');
+            $('#error_captcha').text('正在驗證...').css('color', '#ff9800').show();
+            
+            // 同步驗證驗證碼
+            $.ajax({
+                url: bookingAjax.ajaxurl,
+                type: 'POST',
+                async: false, // 改為同步請求
+                data: {
+                    action: 'verify_captcha',
+                    nonce: bookingAjax.nonce,
+                    answer: captchaAnswer
+                },
+                success: function(response) {
+                    if (response.success) {
+                        captchaVerified = true;
+                        $('#error_captcha').text('').hide();
+                        console.log('驗證碼驗證成功');
+                    } else {
+                        captchaVerified = false;
+                        $('#error_captcha').text('✗ 驗證碼錯誤').css('color', '#d63638').show();
+                        $('#captcha_answer').addClass('error');
+                        isValid = false;
+                        console.log('驗證碼驗證失敗');
+                    }
+                },
+                error: function() {
+                    captchaVerified = false;
+                    $('#error_captcha').text('✗ 驗證失敗').css('color', '#d63638').show();
+                    isValid = false;
+                }
+            });
         }
+        
+        if (!captchaVerified) {
+            isValid = false;
+        }
+        
+        console.log('表單驗證結果:', isValid, '驗證碼狀態:', captchaVerified);
         
         if (!isValid) {
             $('#booking-response').html('<div class="error-message">請修正標示的錯誤欄位</div>');
