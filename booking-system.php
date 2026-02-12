@@ -527,7 +527,6 @@ public function get_available_dates() {
     
 public function render_booking_form() {
     $settings = $this->get_booking_settings();
-    $captcha = $this->generate_captcha();
     
     ob_start();
     ?>
@@ -585,15 +584,6 @@ public function render_booking_form() {
                 <textarea id="booking_note" name="booking_note" rows="4" placeholder="如有特殊需求請在此註明"></textarea>
             </div>
             
-            <div class="form-group captcha-group">
-                <label for="captcha_answer">驗證碼 <span class="required">*</span></label>
-                <div class="captcha-question">
-                    <span class="captcha-text"><?php echo esc_html($captcha['question']); ?></span>
-                    <input type="number" id="captcha_answer" name="captcha_answer" required style="width: 100px; display: inline-block;">
-                </div>
-                <span class="error-message" id="error_captcha"></span>
-            </div>
-            
             <button type="submit" class="submit-booking-btn">送出預約</button>
         </form>
         
@@ -602,6 +592,7 @@ public function render_booking_form() {
     <?php
     return ob_get_clean();
 }
+
 
     
     public function check_time_availability() {
