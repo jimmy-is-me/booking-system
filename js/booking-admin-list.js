@@ -1,8 +1,9 @@
 jQuery(document).ready(function($) {
-    $(document).on('change', '.booking-quick-status', function() {
-        var select = $(this);
-        var bookingId = select.data('booking-id');
-        var newStatus = select.val();
+    // 快速更新狀態
+    $('.booking-quick-status').on('change', function() {
+        var bookingId = $(this).data('booking-id');
+        var newStatus = $(this).val();
+        var selectElement = $(this);
         
         $.ajax({
             url: bookingAdminData.ajaxurl,
@@ -13,50 +14,33 @@ jQuery(document).ready(function($) {
                 booking_id: bookingId,
                 status: newStatus
             },
-            beforeSend: function() {
-                select.prop('disabled', true);
-            },
             success: function(response) {
                 if (response.success) {
-                    var colors = {
+                    // 更新樣式
+                    var statusColors = {
                         'pending_booking': '#ff9800',
                         'confirmed': '#4caf50',
                         'cancelled': '#f44336',
                         'completed': '#2196f3'
                     };
                     
-                    select.css({
-                        'border-color': colors[newStatus],
-                        'color': colors[newStatus]
+                    selectElement.css({
+                        'border-color': statusColors[newStatus],
+                        'color': statusColors[newStatus]
                     });
                     
-                    var icons = {
-                        'pending_booking': '🟠',
-                        'confirmed': '🟢',
-                        'cancelled': '🔴',
-                        'completed': '🔵'
-                    };
+                    // 顯示提示
+                    var originalText = selectElement.parent().html();
+                    selectElement.parent().append('<span class="status-updated" style="color: #4caf50; margin-left: 10px;">✓</span>');
                     
-                    select.parent().find('span').text(icons[newStatus]);
-                    
-                    var notice = $('<div class="notice notice-success is-dismissible" style="position: fixed; top: 32px; right: 20px; z-index: 9999;"><p>狀態已更新</p></div>');
-                    $('body').append(notice);
                     setTimeout(function() {
-                        notice.fadeOut(function() {
+                        $('.status-updated').fadeOut(300, function() {
                             $(this).remove();
                         });
                     }, 2000);
                 } else {
-                    alert('更新失敗：' + response.data.message);
-                    location.reload();
+                    alert('更新失敗: ' + response.data.message);
                 }
-            },
-            error: function() {
-                alert('發生錯誤，請重新整理頁面');
-                location.reload();
-            },
-            complete: function() {
-                select.prop('disabled', false);
             }
         });
     });
